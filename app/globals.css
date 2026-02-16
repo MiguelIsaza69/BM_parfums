@@ -1,26 +1,126 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
+
+  --color-background: #000000;
+  --color-foreground: #ffffff;
+
+  --color-primary: #000000;
+  --color-accent: #d4af37;
+  --color-gold: #d4af37;
+  /* Added for utility support */
+  /* Gold */
+  --color-accent-red: #ff3333;
+  /* Red */
+  --color-border: #333333;
+  --color-muted: #888888;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #000000;
+  --foreground: #ffffff;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-mono);
+  /* Default to mono for that brutalist feel, override with sans/serif where needed */
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Utilities */
+.glass-panel {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+}
+
+.text-gold {
+  color: var(--color-accent);
+}
+
+.text-red {
+  color: var(--color-accent-red);
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Marquee Animation */
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes marquee2 {
+  0% {
+    transform: translateX(100%);
+  }
+
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 600s linear infinite;
+}
+
+.animate-marquee2 {
+  animation: marquee2 600s linear infinite;
+}
+
+.marquee-fast {
+  animation-duration: 60s !important;
+}
+
+.marquee-slow {
+  animation-duration: 400s !important;
+}
+
+/* Pause animation on hover of the container */
+.hover-pause:hover .animate-marquee,
+.hover-pause:hover .animate-marquee2 {
+  animation-play-state: paused;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
