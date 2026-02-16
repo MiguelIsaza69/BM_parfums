@@ -3,38 +3,137 @@
 import { useCart } from "@/context/CartContext";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, CreditCard } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { departments, colombiaData } from "@/lib/colombia-data";
 
 export default function CheckoutPage() {
-    const { items, total } = useCart();
+    const { items, total, clearCart } = useCart();
     const [formData, setFormData] = useState({
         name: "",
         email: "",
         address: "",
         city: "",
-        phone: ""
+        phone: "",
+        department: "",
+        neighborhood: "",
+        apartment: "",
+        details: ""
     });
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const [userAddresses, setUserAddresses] = useState<any[]>([]);
+    const [selectedAddressId, setSelectedAddressId] = useState<string>("new");
+
+    // Derived state for cities based on selected department in form
+    const availableCities = formData.department ? (colombiaData as any)[formData.department] || [] : [];
+    const departmentsList = departments;
+
+    useEffect(() => {
+        const loadUserData = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                // 1. Basic Info from Auth
+                const meta = user.user_metadata || {};
+                const baseData = {
+                    name: meta.full_name || "",
+                    email: user.email || "",
+                    phone: meta.phone || "",
+                    address: "",
+                    city: "",
+                    department: "",
+                    neighborhood: "",
+                    apartment: "",
+                    details: ""
+                };
+
+                setFormData(prev => ({ ...prev, name: baseData.name, email: baseData.email, phone: baseData.phone }));
+
+                // 2. Fetch User Addresses
+                const { data: addresses } = await supabase
+                    .from('addresses')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('is_default', { ascending: false }); // Default first
+
+                if (addresses && addresses.length > 0) {
+                    setUserAddresses(addresses);
+                    // Select default address automatically
+                    const defaultAddr = addresses.find((a: any) => a.is_default) || addresses[0];
+                    setSelectedAddressId(defaultAddr.id);
+                    fillAddressForm(defaultAddr);
+                }
+            }
+        };
+        loadUserData();
+    }, []);
+
+    const fillAddressForm = (addr: any) => {
+        setFormData(prev => ({
+            ...prev,
+            address: addr.full_address || "",
+            city: addr.city || "",
+            department: addr.department || "",
+            neighborhood: addr.neighborhood || "",
+            apartment: addr.apartment || "",
+            details: addr.details || ""
+        }));
+    };
+
+    const handleAddressSelection = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value;
+        setSelectedAddressId(value);
+
+        if (value === "new") {
+            // Clear address fields but keep contact info
+            setFormData(prev => ({
+                ...prev,
+                address: "",
+                city: "",
+                department: "",
+                neighborhood: "",
+                apartment: "",
+                details: ""
+            }));
+        } else {
+            const selected = userAddresses.find(a => a.id === value);
+            if (selected) fillAddressForm(selected);
+        }
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+        // If user manually types address, switch select to "new" to indicate custom entry, unless editing current selection (optional logic, keeping simple for now)
+        if (selectedAddressId !== "new" && ["address", "city", "department", "neighborhood", "apartment", "details"].includes(name)) {
+            setSelectedAddressId("new");
+        }
     };
 
     const handlePayment = async () => {
-        // 0. Validations
-        if (!formData.name || !formData.email || !formData.address || !formData.phone) {
-            alert("Por favor completa todos los campos de envío.");
+        console.log("Procesando pago...", formData);
+
+        // 0. Validations (Check specifically which fields are missing)
+        const missingFields = [];
+        if (!formData.name) missingFields.push("Nombre Completo");
+        if (!formData.email) missingFields.push("Email");
+        if (!formData.phone) missingFields.push("Teléfono");
+        if (!formData.department) missingFields.push("Departamento");
+        if (!formData.city) missingFields.push("Ciudad");
+        if (!formData.neighborhood) missingFields.push("Barrio");
+        if (!formData.address) missingFields.push("Dirección");
+
+        if (missingFields.length > 0) {
+            alert(`Por favor completa los siguientes campos obligatorios: \n- ${missingFields.join('\n- ')}`);
             return;
         }
 
         // 1. Get User
         const { data: { user } } = await supabase.auth.getUser();
 
-        // 2. Create Order in DB
+        // 2 Create Order
         const { data: order, error } = await supabase.from('orders').insert([{
             user_id: user?.id || null,
             total: total,
@@ -45,22 +144,17 @@ export default function CheckoutPage() {
 
         if (error) {
             console.error("Error creating order:", error);
-            alert("Hubo un error al procesar tu pedido. Por favor intenta nuevamente.");
+            alert("Hubo un error al procesar tu pedido. Intenta nuevamente.");
             return;
         }
 
-        // 3. Configuración de Wompi
-        const PUBLIC_KEY = "pub_test_X5w5X5w5X5w5X5w5X5w5X5w5X5w5X5w5"; // Llave de prueba de Wompi
-        const currency = "COP";
-        const totalInCents = total * 100; // Wompi usa centavos
-        const reference = order.id; // Usar ID real del pedido
-        const redirectUrl = `${window.location.origin}/catalogo?status=success&order_id=${order.id}`;
+        // 3. Clear Cart
+        clearCart();
 
-        // 4. Construir URL de Wompi
-        const wompiUrl = `https://checkout.wompi.co/p/?public-key=${PUBLIC_KEY}&currency=${currency}&amount-in-cents=${totalInCents}&reference=${reference}&redirect-url=${redirectUrl}`;
+        // 4. Save Address if it's new and user is logged in (Optional feature, explicit save generally preferred)
 
-        // 5. Redirigir al usuario
-        window.location.href = wompiUrl;
+        // 5. Redirect
+        window.location.href = `/catalogo?status=success&order_id=${order.id}`;
     };
 
     if (items.length === 0) {
@@ -92,6 +186,26 @@ export default function CheckoutPage() {
                     <div className="flex-1">
                         <h2 className="text-xl font-serif mb-6 text-gold">Información de Envío</h2>
                         <form className="flex flex-col gap-6" onSubmit={(e) => { e.preventDefault(); handlePayment(); }}>
+
+                            {/* Saved Addresses Selector */}
+                            {userAddresses.length > 0 && (
+                                <div className="bg-neutral-900/50 p-4 border border-white/10 rounded mb-2">
+                                    <label className="text-xs font-mono uppercase text-neutral-400 block mb-2">Usar dirección guardada</label>
+                                    <select
+                                        value={selectedAddressId}
+                                        onChange={handleAddressSelection}
+                                        className="w-full bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none cursor-pointer rounded"
+                                    >
+                                        <option value="new">-- Nueva Dirección --</option>
+                                        {userAddresses.map(addr => (
+                                            <option key={addr.id} value={addr.id}>
+                                                {addr.alias} - {addr.full_address}, {addr.city}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="flex flex-col gap-2">
                                     <label className="text-xs font-mono uppercase text-neutral-400">Nombre Completo</label>
@@ -117,30 +231,7 @@ export default function CheckoutPage() {
                                 </div>
                             </div>
 
-                            <div className="flex flex-col gap-2">
-                                <label className="text-xs font-mono uppercase text-neutral-400">Dirección</label>
-                                <input
-                                    type="text"
-                                    name="address"
-                                    value={formData.address}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="bg-transparent border-b border-white/20 py-2 focus:border-gold outline-none transition-colors"
-                                />
-                            </div>
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-mono uppercase text-neutral-400">Ciudad</label>
-                                    <input
-                                        type="text"
-                                        name="city"
-                                        value={formData.city}
-                                        onChange={handleInputChange}
-                                        required
-                                        className="bg-transparent border-b border-white/20 py-2 focus:border-gold outline-none transition-colors"
-                                    />
-                                </div>
                                 <div className="flex flex-col gap-2">
                                     <label className="text-xs font-mono uppercase text-neutral-400">Teléfono</label>
                                     <input
@@ -150,6 +241,88 @@ export default function CheckoutPage() {
                                         onChange={handleInputChange}
                                         required
                                         className="bg-transparent border-b border-white/20 py-2 focus:border-gold outline-none transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-mono uppercase text-neutral-400">Departamento</label>
+                                    <select
+                                        name="department"
+                                        value={formData.department}
+                                        onChange={handleInputChange}
+                                        required
+                                        className="bg-transparent border-b border-white/20 py-2 focus:border-gold outline-none transition-colors appearance-none cursor-pointer"
+                                    >
+                                        <option value="" className="bg-black text-neutral-500">Seleccionar...</option>
+                                        {departmentsList.map(dept => (
+                                            <option key={dept} value={dept} className="bg-black">{dept}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-mono uppercase text-neutral-400">Ciudad</label>
+                                    <select
+                                        name="city"
+                                        value={formData.city}
+                                        onChange={handleInputChange}
+                                        required
+                                        disabled={!formData.department}
+                                        className="bg-transparent border-b border-white/20 py-2 focus:border-gold outline-none transition-colors appearance-none cursor-pointer disabled:opacity-50"
+                                    >
+                                        <option value="" className="bg-black text-neutral-500">Seleccionar...</option>
+                                        {availableCities.map((city: string) => (
+                                            <option key={city} value={city} className="bg-black">{city}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-mono uppercase text-neutral-400">Barrio</label>
+                                    <input
+                                        type="text"
+                                        name="neighborhood"
+                                        value={formData.neighborhood}
+                                        onChange={handleInputChange}
+                                        required
+                                        className="bg-transparent border-b border-white/20 py-2 focus:border-gold outline-none transition-colors"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-mono uppercase text-neutral-400">Dirección</label>
+                                <input
+                                    type="text"
+                                    name="address"
+                                    value={formData.address}
+                                    onChange={handleInputChange}
+                                    required
+                                    placeholder="Calle 123 # 45 - 67"
+                                    className="bg-transparent border-b border-white/20 py-2 focus:border-gold outline-none transition-colors placeholder:text-neutral-700"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-mono uppercase text-neutral-400">Apartamento / Unidad (Opcional)</label>
+                                    <input
+                                        type="text"
+                                        name="apartment"
+                                        value={formData.apartment}
+                                        onChange={handleInputChange}
+                                        className="bg-transparent border-b border-white/20 py-2 focus:border-gold outline-none transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-mono uppercase text-neutral-400">Detalles / Referencias (Opcional)</label>
+                                    <input
+                                        type="text"
+                                        name="details"
+                                        value={formData.details}
+                                        onChange={handleInputChange}
+                                        placeholder="Fachada blanca, tercer piso..."
+                                        className="bg-transparent border-b border-white/20 py-2 focus:border-gold outline-none transition-colors placeholder:text-neutral-700"
                                     />
                                 </div>
                             </div>

@@ -14,6 +14,7 @@ export default function UserDashboard() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'orders' | 'profile'>('orders');
     const [addresses, setAddresses] = useState<any[]>([]);
+    const [orders, setOrders] = useState<any[]>([]);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [newAddress, setNewAddress] = useState({
         alias: "",
@@ -45,6 +46,16 @@ export default function UserDashboard() {
         if (data) setAddresses(data);
     };
 
+    const fetchOrders = async (userId: string) => {
+        const { data, error } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (data) setOrders(data);
+    };
+
     useEffect(() => {
         const checkUser = async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -71,7 +82,10 @@ export default function UserDashboard() {
             };
 
             setUser(finalUser);
+            // Fetch Data
             fetchAddresses(session.user.id);
+            fetchOrders(session.user.id);
+
             setLoading(false);
         };
 
@@ -240,14 +254,74 @@ export default function UserDashboard() {
                         <div className="border border-white/10 p-6 rounded-lg bg-neutral-900/20">
                             <h2 className="text-xl font-sans mb-6">Pedidos Recientes</h2>
 
-                            {/* Placeholder for now */}
-                            <div className="text-center py-12 text-neutral-500 font-mono text-xs">
-                                No hay pedidos recientes.
-                                <br />
-                                <Link href="/catalogo" className="text-gold mt-2 block hover:underline cursor-pointer">
-                                    Explorar Catálogo →
-                                </Link>
-                            </div>
+                            {orders.length === 0 ? (
+                                <div className="text-center py-12 text-neutral-500 font-mono text-xs">
+                                    No hay pedidos recientes.
+                                    <br />
+                                    <Link href="/catalogo" className="text-gold mt-2 block hover:underline cursor-pointer">
+                                        Explorar Catálogo →
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {orders.map((order) => (
+                                        <div key={order.id} className="border border-white/10 p-4 rounded bg-black/40 flex flex-col md:flex-row justify-between gap-4">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <span className="text-gold font-mono text-sm font-bold">#{order.id.slice(0, 8)}</span>
+                                                    <span className={`px-2 py-0.5 text-[10px] uppercase font-bold rounded ${order.status === 'completed' ? 'bg-green-500/20 text-green-500' :
+                                                        order.status === 'processing' ? 'bg-blue-500/20 text-blue-500' :
+                                                            order.status === 'cancelled' ? 'bg-red-500/20 text-red-500' :
+                                                                'bg-yellow-500/20 text-yellow-500'
+                                                        }`}>
+                                                        {order.status === 'pending' ? 'Pendiente' :
+                                                            order.status === 'processing' ? 'Procesando' :
+                                                                order.status === 'completed' ? 'Completado' : 'Cancelado'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-neutral-400 font-mono mb-2">
+                                                    {new Date(order.created_at).toLocaleDateString()} a las {new Date(order.created_at).toLocaleTimeString()}
+                                                </p>
+                                                <div className="space-y-1">
+                                                    {Array.isArray(order.items) && order.items.map((item: any, idx: number) => (
+                                                        <p key={idx} className="text-sm text-white font-serif">
+                                                            {item.quantity}x {item.name}
+                                                        </p>
+                                                    ))}
+                                                </div>
+
+                                                {/* Shipping Details */}
+                                                <div className="mt-4 pt-4 border-t border-white/5 text-xs text-neutral-400 font-mono">
+                                                    <p>
+                                                        <span className="text-neutral-600 block mb-1">Dirección de Envío:</span>
+                                                        <span className="text-neutral-300">
+                                                            {order.shipping_info?.address}
+                                                            {order.shipping_info?.apartment ? `, Apto ${order.shipping_info.apartment}` : ''}
+                                                            <br />
+                                                            {order.shipping_info?.neighborhood}, {order.shipping_info?.city}, {order.shipping_info?.department}
+                                                        </span>
+                                                    </p>
+                                                    <p className="mt-2">
+                                                        <span className="text-neutral-600 mr-2">Contacto:</span>
+                                                        <span className="text-neutral-300">{order.shipping_info?.phone}</span>
+                                                    </p>
+                                                    {order.shipping_info?.details && (
+                                                        <p className="mt-1">
+                                                            <span className="text-neutral-600 mr-2">Notas:</span>
+                                                            <span className="text-neutral-300 italic">"{order.shipping_info.details}"</span>
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col justify-between items-end min-w-[120px]">
+                                                <span className="text-lg font-bold text-white font-mono">${order.total.toLocaleString()}</span>
+                                                {/* Future: Add 'View Details' button if needed */}
+                                                <div className="text-[10px] text-neutral-500 uppercase tracking-widest mt-2">{order.items?.length} Items</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
 

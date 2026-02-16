@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import Image from "next/image";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -21,12 +21,10 @@ function CatalogContent() {
     const [genders, setGenders] = useState<any[]>([]);
 
     // Filter State
-    const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
-    const [paginatedProducts, setPaginatedProducts] = useState<any[]>([]);
     const [selectedGenders, setSelectedGenders] = useState<string[]>([]);
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // URLs usually pass IDs or Names. Let's assume Names for SEO, map to IDs if needed.
     const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-    const [priceRange, setPriceRange] = useState([0, 500000]);
+    const [priceRange, setPriceRange] = useState([0, 1000000]);
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -114,8 +112,8 @@ function CatalogContent() {
         }
     }, [searchParams, isLoading, categories, brands, genders]);
 
-    // Apply Filters
-    useEffect(() => {
+    // Derived State (Filtering)
+    const filteredProducts = useMemo(() => {
         let result = allProducts;
 
         // Gender
@@ -123,7 +121,7 @@ function CatalogContent() {
             result = result.filter(p => selectedGenders.includes(p.genderName));
         }
 
-        // Categories (Check if product has the category ID in its array)
+        // Categories
         if (selectedCategories.length > 0) {
             result = result.filter(p =>
                 p.categoryIds && p.categoryIds.some((id: string) => selectedCategories.includes(id))
@@ -138,16 +136,20 @@ function CatalogContent() {
         // Price
         result = result.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
 
-        setFilteredProducts(result);
-        setCurrentPage(1); // Reset pagination on filter change
+        return result;
     }, [allProducts, selectedGenders, selectedCategories, selectedBrands, priceRange]);
 
-    // Pagination
-    useEffect(() => {
+    // Derived State (Pagination)
+    const paginatedProducts = useMemo(() => {
         const start = (currentPage - 1) * ITEMS_PER_PAGE;
         const end = start + ITEMS_PER_PAGE;
-        setPaginatedProducts(filteredProducts.slice(start, end));
+        return filteredProducts.slice(start, end);
     }, [filteredProducts, currentPage]);
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedGenders, selectedCategories, selectedBrands, priceRange]);
 
     // Handlers
     const toggleGender = (g: string) => setSelectedGenders(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
@@ -180,8 +182,8 @@ function CatalogContent() {
                         <input
                             type="range"
                             min="0"
-                            max="500000"
-                            step="10000"
+                            max="1000000"
+                            step="5000"
                             value={priceRange[1]}
                             onChange={(e) => setPriceRange([0, parseInt(e.target.value)])}
                             className="w-full accent-gold h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"

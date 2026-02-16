@@ -30,14 +30,18 @@ function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: st
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        // Trigger enter animation
+        // Trigger enter animation on mount
         requestAnimationFrame(() => setIsVisible(true));
+    }, []);
 
+    useEffect(() => {
         // Auto remove after 5 seconds
+        const duration = 5000;
+
         const timer = setTimeout(() => {
             setIsVisible(false);
             setTimeout(() => onRemove(toast.id), 300); // Wait for exit animation
-        }, 5000);
+        }, duration);
 
         return () => clearTimeout(timer);
     }, [toast.id, onRemove]);

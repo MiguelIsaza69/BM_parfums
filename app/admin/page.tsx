@@ -167,8 +167,10 @@ export default function AdminDashboard() {
 
     const [brands, setBrands] = useState<any[]>([]);
     const [newBrandName, setNewBrandName] = useState("");
+    const [newBrandLogo, setNewBrandLogo] = useState("");
     const [editingBrandId, setEditingBrandId] = useState<string | null>(null);
     const [editBrandName, setEditBrandName] = useState("");
+    const [editBrandLogo, setEditBrandLogo] = useState("");
     const [isSubmittingBrand, setIsSubmittingBrand] = useState(false);
 
     useEffect(() => {
@@ -176,7 +178,7 @@ export default function AdminDashboard() {
 
         const fetchData = async () => {
             if (activeSection === 'config' || activeSection === 'products') {
-                const { data, error } = await supabase.from('brands').select('id, name').order('name', { ascending: true });
+                const { data, error } = await supabase.from('brands').select('id, name, logo_url').order('name', { ascending: true });
                 if (error) {
                     console.error("Error loading brands:", error);
                     addToast("Error al cargar marcas", "error");
@@ -250,10 +252,11 @@ export default function AdminDashboard() {
         if (!newBrandName.trim()) return addToast("Nombre vacío", "warning");
         setIsSubmittingBrand(true);
         try {
-            const { error } = await supabase.from('brands').insert([{ name: newBrandName }]);
+            const { error } = await supabase.from('brands').insert([{ name: newBrandName, logo_url: newBrandLogo }]);
             if (error) throw error;
             addToast("Marca agregada.", "success");
             setNewBrandName("");
+            setNewBrandLogo("");
             const { data } = await supabase.from('brands').select('*').order('name', { ascending: true });
             if (data) setBrands(data);
         } catch (err: any) { addToast("Error: " + err.message, "error"); }
@@ -265,14 +268,14 @@ export default function AdminDashboard() {
         if (error) addToast("Error: " + error.message, "error");
         else { setBrands(brands.filter(b => b.id !== id)); addToast("Marca eliminada.", "success"); }
     };
-    const handleStartEditBrand = (b: any) => { setEditingBrandId(b.id); setEditBrandName(b.name); };
-    const handleCancelEditBrand = () => { setEditingBrandId(null); setEditBrandName(""); };
+    const handleStartEditBrand = (b: any) => { setEditingBrandId(b.id); setEditBrandName(b.name); setEditBrandLogo(b.logo_url || ""); };
+    const handleCancelEditBrand = () => { setEditingBrandId(null); setEditBrandName(""); setEditBrandLogo(""); };
     const handleSaveEditBrand = async (id: string) => {
         if (!editBrandName.trim()) return addToast("Nombre vacío", "warning");
-        const { error } = await supabase.from('brands').update({ name: editBrandName }).eq('id', id);
+        const { error } = await supabase.from('brands').update({ name: editBrandName, logo_url: editBrandLogo }).eq('id', id);
         if (error) addToast("Error: " + error.message, "error");
         else {
-            setBrands(brands.map(b => b.id === id ? { ...b, name: editBrandName } : b));
+            setBrands(brands.map(b => b.id === id ? { ...b, name: editBrandName, logo_url: editBrandLogo } : b));
             setEditingBrandId(null);
             addToast("Marca actualizada.", "success");
         }
@@ -639,40 +642,42 @@ export default function AdminDashboard() {
                                         <th className="p-4">Descripción / Notas</th>
                                     </tr>
                                 </thead>
-                                <tbody className="text-xs font-mono text-neutral-300 divide-y divide-white/5">
+                                <tbody className="text-sm font-mono text-neutral-300 divide-y divide-white/5">
                                     {filteredOrders.map((order) => (
                                         <tr key={order.id} className="hover:bg-white/5 transition-colors group">
-                                            <td className="p-4 text-white/50 font-mono text-[10px]">{order.id.substring(0, 8)}...</td>
+                                            <td className="p-4 text-white/50 font-mono text-xs">{order.id.substring(0, 8)}...</td>
                                             <td className="p-4 align-top">
                                                 <div className="flex flex-col gap-1">
-                                                    <span className="text-white font-bold">{order.shipping_info?.name || "Sin nombre"}</span>
-                                                    <span className="text-neutral-500">{order.shipping_info?.phone || "—"}</span>
-                                                    <span className="text-neutral-500 text-[10px]">{order.shipping_info?.email || order.profiles?.email}</span>
+                                                    <span className="text-white font-bold text-base">{order.shipping_info?.name || "Sin nombre"}</span>
+                                                    <span className="text-neutral-300 text-sm">{order.shipping_info?.phone || "—"}</span>
+                                                    <span className="text-neutral-300 text-sm">{order.shipping_info?.email || order.profiles?.email}</span>
                                                 </div>
                                             </td>
                                             <td className="p-4 align-top">
-                                                <div className="flex flex-col gap-1 max-w-[150px]">
-                                                    <span className="truncate" title={order.shipping_info?.address}>{order.shipping_info?.address || "—"}</span>
-                                                    <span className="text-neutral-500 font-serif italic">{order.shipping_info?.city || "—"}</span>
+                                                <div className="flex flex-col gap-1 max-w-[200px]">
+                                                    <span className="text-sm font-bold block mb-1">{order.shipping_info?.address || "—"}</span>
+                                                    {order.shipping_info?.apartment && <span className="text-sm text-neutral-300 block">Apto: {order.shipping_info.apartment}</span>}
+                                                    <span className="text-white text-sm block">{order.shipping_info?.neighborhood}</span>
+                                                    <span className="text-neutral-300 font-serif text-sm block">{order.shipping_info?.city}, {order.shipping_info?.department}</span>
                                                 </div>
                                             </td>
                                             <td className="p-4 align-top">
                                                 <div className="flex flex-col gap-2 max-w-[250px]">
                                                     {Array.isArray(order.items) && order.items.map((item: any, idx: number) => (
                                                         <div key={idx} className="flex justify-between items-start border-b border-white/5 pb-1 last:border-0 gap-2">
-                                                            <span className="text-white line-clamp-2 leading-tight">{item.quantity}x <span className="text-neutral-400">{item.name}</span></span>
+                                                            <span className="text-white line-clamp-2 leading-tight text-sm">{item.quantity}x <span className="text-neutral-400">{item.name}</span></span>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </td>
-                                            <td className="p-4 align-top text-neutral-500">{new Date(order.created_at).toLocaleDateString()} <br /> <span className="text-[10px] opacity-50">{new Date(order.created_at).toLocaleTimeString()}</span></td>
+                                            <td className="p-4 align-top text-neutral-300 text-sm">{new Date(order.created_at).toLocaleDateString()} <br /> <span className="text-neutral-400 text-sm">{new Date(order.created_at).toLocaleTimeString()}</span></td>
                                             <td className="p-4 align-top">
                                                 <select
                                                     value={order.status}
                                                     onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
-                                                    className={`cursor-pointer bg-transparent border border-white/10 rounded px-2 py-1 text-xs outline-none focus:border-gold transition-colors font-bold uppercase tracking-wider ${order.status === 'pending' ? 'text-yellow-500 border-yellow-500/20 bg-yellow-500/5' :
-                                                            order.status === 'processing' ? 'text-blue-400 border-blue-400/20 bg-blue-400/5' :
-                                                                order.status === 'completed' ? 'text-green-500 border-green-500/20 bg-green-500/5' : 'text-red-500 border-red-500/20 bg-red-500/5'
+                                                    className={`cursor-pointer bg-transparent border border-white/10 rounded px-2 py-1 text-sm outline-none focus:border-gold transition-colors font-bold uppercase tracking-wider ${order.status === 'pending' ? 'text-yellow-500 border-yellow-500/20 bg-yellow-500/5' :
+                                                        order.status === 'processing' ? 'text-blue-400 border-blue-400/20 bg-blue-400/5' :
+                                                            order.status === 'completed' ? 'text-green-500 border-green-500/20 bg-green-500/5' : 'text-red-500 border-red-500/20 bg-red-500/5'
                                                         }`}
                                                 >
                                                     <option value="pending" className="bg-black text-yellow-500">Pendiente</option>
@@ -681,16 +686,16 @@ export default function AdminDashboard() {
                                                     <option value="cancelled" className="bg-black text-red-500">Cancelado</option>
                                                 </select>
                                             </td>
-                                            <td className="p-4 align-top text-gold font-bold font-mono">${Number(order.total).toLocaleString()}</td>
+                                            <td className="p-4 align-top text-gold font-bold font-mono text-base">${Number(order.total).toLocaleString()}</td>
                                             <td className="p-4 align-top">
                                                 {order.status === 'completed' || order.status === 'cancelled' ? (
-                                                    <div className="text-neutral-500 italic text-xs max-w-[200px] break-words">{order.description || "Sin notas"}</div>
+                                                    <div className="text-neutral-500 italic text-sm max-w-[200px] break-words">{order.description || "Sin notas"}</div>
                                                 ) : (
                                                     <textarea
                                                         defaultValue={order.description || ""}
                                                         onBlur={(e) => handleUpdateOrderDescription(order.id, e.target.value)}
                                                         placeholder="Agregar nota..."
-                                                        className="bg-transparent border border-white/10 w-full min-w-[150px] focus:border-gold outline-none transition-colors text-white placeholder:text-neutral-700 focus:bg-white/5 p-2 rounded text-xs resize-y min-h-[60px]"
+                                                        className="bg-transparent border border-white/10 w-full min-w-[200px] focus:border-gold outline-none transition-colors text-white placeholder:text-neutral-700 focus:bg-white/5 p-2 rounded text-sm resize-y min-h-[80px]"
                                                     />
                                                 )}
                                             </td>
@@ -788,11 +793,17 @@ export default function AdminDashboard() {
                     {/* Brands Section */}
                     <div>
                         <h2 className="text-2xl font-serif text-white mb-6">Marcas</h2>
-                        <form onSubmit={handleAddBrand} className="flex gap-4 mb-8 bg-neutral-900 p-4 rounded-lg border border-white/20">
+                        <form onSubmit={handleAddBrand} className="flex gap-4 mb-8 bg-neutral-900 p-4 rounded-lg border border-white/20 flex-col md:flex-row">
                             <input
                                 value={newBrandName}
                                 onChange={e => setNewBrandName(e.target.value)}
                                 placeholder="Nombre de la marca (ej. Versace)"
+                                className="flex-1 bg-black border border-white/20 p-3 text-white text-sm font-mono focus:border-gold outline-none rounded"
+                            />
+                            <input
+                                value={newBrandLogo}
+                                onChange={e => setNewBrandLogo(e.target.value)}
+                                placeholder="URL del Logo (Opcional)"
                                 className="flex-1 bg-black border border-white/20 p-3 text-white text-sm font-mono focus:border-gold outline-none rounded"
                             />
                             <button type="submit" disabled={isSubmittingBrand} className="bg-gold px-6 py-2 text-black font-bold uppercase text-xs hover:bg-white transition-colors rounded relative">
@@ -802,23 +813,52 @@ export default function AdminDashboard() {
                                 </span>
                             </button>
                         </form>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {brands.map(b => (
-                                editingBrandId === b.id ? (
-                                    <div key={b.id} className="flex gap-2 bg-neutral-800 p-4 rounded items-center border border-gold shadow-md">
-                                        <input value={editBrandName} onChange={e => setEditBrandName(e.target.value)} className="flex-1 bg-black p-2 text-white text-sm outline-none border border-white/20 rounded" autoFocus />
-                                        <button onClick={() => handleSaveEditBrand(b.id)} className="text-green-500 hover:text-green-400 bg-white/10 p-2 rounded"><Check size={16} /></button>
-                                        <button onClick={handleCancelEditBrand} className="text-red-500 hover:text-red-400 bg-white/10 p-2 rounded"><X size={16} /></button>
-                                    </div>
-                                ) : (
-                                    <div key={b.id} className="group bg-neutral-800 border border-white/10 p-4 flex justify-between items-center text-white rounded hover:bg-neutral-700 transition-colors shadow-sm">
-                                        <span className="text-sm font-medium">{b.name}</span>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => handleStartEditBrand(b)} className="text-neutral-400 hover:text-gold"><Edit size={14} /></button>
-                                            <button onClick={() => handleDeleteBrand(b.id)} className="text-neutral-400 hover:text-red-500"><Trash2 size={14} /></button>
+                                <div key={b.id} className="bg-neutral-900/40 border border-white/10 p-4 rounded flex justify-between items-center group hover:border-white/30 transition-colors">
+                                    {editingBrandId === b.id ? (
+                                        <div className="flex flex-col gap-2 w-full">
+                                            <input
+                                                value={editBrandName}
+                                                onChange={e => setEditBrandName(e.target.value)}
+                                                className="w-full bg-black border border-white/30 p-2 text-xs text-white focus:border-gold outline-none rounded"
+                                                autoFocus
+                                                placeholder="Nombre"
+                                            />
+                                            <input
+                                                value={editBrandLogo}
+                                                onChange={e => setEditBrandLogo(e.target.value)}
+                                                className="w-full bg-black border border-white/30 p-2 text-xs text-white focus:border-gold outline-none rounded"
+                                                placeholder="URL Logo"
+                                                onKeyDown={(e) => e.key === 'Enter' && handleSaveEditBrand(b.id)}
+                                            />
+                                            <div className="flex gap-2 justify-end">
+                                                <button onClick={() => handleSaveEditBrand(b.id)} className="text-green-500 hover:text-green-400 p-1"><Check size={16} /></button>
+                                                <button onClick={handleCancelEditBrand} className="text-red-500 hover:text-red-400 p-1"><X size={16} /></button>
+                                            </div>
                                         </div>
-                                    </div>
-                                )
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                {b.logo_url ? (
+                                                    <div className="w-8 h-8 bg-white/5 rounded-full overflow-hidden flex-shrink-0 border border-white/10">
+                                                        <img src={b.logo_url} alt={b.name} className="w-full h-full object-cover" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center text-[10px] text-neutral-500 font-mono border border-white/10 flex-shrink-0">
+                                                        {b.name.slice(0, 2).toUpperCase()}
+                                                    </div>
+                                                )}
+                                                <span className="text-xs font-mono font-bold text-white uppercase truncate">{b.name}</span>
+                                            </div>
+                                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleStartEditBrand(b)} className="text-neutral-400 hover:text-white p-1"><Edit size={14} /></button>
+                                                <button onClick={() => handleDeleteBrand(b.id)} className="text-neutral-400 hover:text-red-500 p-1"><Trash2 size={14} /></button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             ))}
                         </div>
                     </div>
