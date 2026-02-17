@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { LayoutDashboard, Users, Package, Settings, LogOut, FilePlus, RefreshCcw, Plus, Trash2, Edit, Check, X } from "lucide-react";
-import { ToastContainer, ToastMessage, ToastType } from "@/components/Toast";
+import { LayoutDashboard, Users, Package, Settings, LogOut, FilePlus, RefreshCcw, Plus, Trash2, Edit, Check, X, FileText } from "lucide-react";
+import { sileo } from "sileo";
 import { updateHeroSlide, updateBrand } from "../actions/config";
 
 export default function AdminDashboard() {
@@ -14,7 +15,7 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
     const [activeSection, setActiveSection] = useState('dashboard');
-    const [toasts, setToasts] = useState<ToastMessage[]>([]);
+    // const [toasts, setToasts] = useState<ToastMessage[]>([]); // Removed custom toast state
 
     const [ordersTab, setOrdersTab] = useState<'pending' | 'processing' | 'completed'>('pending');
 
@@ -28,9 +29,13 @@ export default function AdminDashboard() {
     });
     const [ordersList, setOrdersList] = useState<any[]>([]);
 
-    const addToast = (message: string, type: ToastType = "info") => {
-        const id = Math.random().toString(36).substring(7);
-        setToasts(prev => [...prev, { id, message, type }]);
+    const addToast = (message: string, type: "success" | "error" | "info" | "warning" = "info") => {
+        switch (type) {
+            case "success": sileo.success({ title: message }); break;
+            case "error": sileo.error({ title: message }); break;
+            case "warning": sileo.warning({ title: message }); break;
+            case "info": default: sileo.info({ title: message }); break;
+        }
     };
 
     const handleUpdateOrderStatus = async (id: string, newStatus: string) => {
@@ -53,9 +58,9 @@ export default function AdminDashboard() {
         }
     };
 
-    const removeToast = (id: string) => {
-        setToasts(prev => prev.filter(t => t.id !== id));
-    };
+    // const removeToast = (id: string) => { // Removed usage
+    //     setToasts(prev => prev.filter(t => t.id !== id));
+    // };
 
     useEffect(() => {
         let mounted = true;
@@ -363,6 +368,20 @@ export default function AdminDashboard() {
             }
             const cleanDesc = (productForm.description || "").normalize('NFC').replace(/\u0000/g, "").trim();
 
+            // DUPLICATE CHECK: Prevent exact Name + Quality duplicates
+            const normalizedName = productForm.name.trim().toLowerCase();
+            const duplicate = products.find(p =>
+                p.name.toLowerCase() === normalizedName &&
+                p.quality === productForm.quality &&
+                p.id !== productForm.id
+            );
+
+            if (duplicate) {
+                addToast(`Ya existe "${duplicate.name}" en calidad ${duplicate.quality}`, "warning");
+                setIsSubmittingProduct(false);
+                return;
+            }
+
             // PAYLOAD ÚNICO (Atomic Save)
             const payload = {
                 id: productForm.id, // Include ID for updates
@@ -645,7 +664,19 @@ export default function AdminDashboard() {
                                 <tbody className="text-sm font-mono text-neutral-300 divide-y divide-white/5">
                                     {filteredOrders.map((order) => (
                                         <tr key={order.id} className="hover:bg-white/5 transition-colors group">
-                                            <td className="p-4 text-white/50 font-mono text-xs">{order.id.substring(0, 8)}...</td>
+                                            <td className="p-4 align-top">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-white/50 font-mono text-xs">{order.id.substring(0, 8)}...</span>
+                                                    <Link
+                                                        href={`/order-confirmation/${order.id}`}
+                                                        target="_blank"
+                                                        className="text-[10px] text-gold uppercase tracking-widest hover:underline flex items-center gap-1 w-fit"
+                                                    >
+                                                        <FileText size={10} />
+                                                        Ver Factura
+                                                    </Link>
+                                                </div>
+                                            </td>
                                             <td className="p-4 align-top">
                                                 <div className="flex flex-col gap-1">
                                                     <span className="text-white font-bold text-base">{order.shipping_info?.name || "Sin nombre"}</span>
@@ -949,7 +980,7 @@ export default function AdminDashboard() {
                 <div className="lg:col-span-3">{renderContent()}</div>
             </div>
             <Footer />
-            <ToastContainer toasts={toasts} removeToast={removeToast} />
+            {/* <ToastContainer toasts={toasts} removeToast={removeToast} /> */}
         </main>
     );
 }

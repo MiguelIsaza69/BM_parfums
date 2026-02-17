@@ -45,10 +45,15 @@ export function Header() {
                     .select('*, brands(name)')
                     .limit(4);
 
+                // Sanitize query for the complex OR generic filter to prevent syntax injection
+                // PostgREST raw filters can be sensitive to characters like , ( ) .
+                const safeQuery = searchQuery.replace(/[(),.]/g, " ");
+
                 if (brandIds.length > 0) {
                     // Syntax: .or('name.ilike.%query%,brand_id.in.(id1,id2)')
-                    productQuery = productQuery.or(`name.ilike.%${searchQuery}%,brand_id.in.(${brandIds.join(',')})`);
+                    productQuery = productQuery.or(`name.ilike.%${safeQuery}%,brand_id.in.(${brandIds.join(',')})`);
                 } else {
+                    // Standard .ilike() is parameterized and safe
                     productQuery = productQuery.ilike('name', `%${searchQuery}%`);
                 }
 

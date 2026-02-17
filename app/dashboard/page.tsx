@@ -315,8 +315,10 @@ export default function UserDashboard() {
                                             </div>
                                             <div className="flex flex-col justify-between items-end min-w-[120px]">
                                                 <span className="text-lg font-bold text-white font-mono">${order.total.toLocaleString()}</span>
-                                                {/* Future: Add 'View Details' button if needed */}
-                                                <div className="text-[10px] text-neutral-500 uppercase tracking-widest mt-2">{order.items?.length} Items</div>
+                                                <Link href={`/order-confirmation/${order.id}`} className="mt-2 text-gold text-xs font-mono uppercase tracking-widest hover:underline flex items-center justify-end gap-1">
+                                                    Ver Factura &rarr;
+                                                </Link>
+                                                <div className="text-[10px] text-neutral-500 uppercase tracking-widest mt-1">{order.items?.length} Items</div>
                                             </div>
                                         </div>
                                     ))}

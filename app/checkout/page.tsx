@@ -151,10 +151,27 @@ export default function CheckoutPage() {
         // 3. Clear Cart
         clearCart();
 
-        // 4. Save Address if it's new and user is logged in (Optional feature, explicit save generally preferred)
+
+        // 4. Send Email Invoice (Fire and forget or await if critical)
+        try {
+            await fetch('/api/send-invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orderId: order.id,
+                    email: formData.email,
+                    name: formData.name,
+                    items: items,
+                    total: total,
+                    shipping_info: formData
+                })
+            });
+        } catch (e) {
+            console.error("Error sending invoice email:", e);
+        }
 
         // 5. Redirect
-        window.location.href = `/catalogo?status=success&order_id=${order.id}`;
+        window.location.href = `/order-confirmation/${order.id}`;
     };
 
     if (items.length === 0) {

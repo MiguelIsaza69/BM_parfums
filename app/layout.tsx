@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Space_Mono, Inter } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
+import { Toaster } from "sileo";
+import "sileo/styles.css";
 
 const playfair = Playfair_Display({
   variable: "--font-serif",
@@ -39,6 +42,16 @@ export default function RootLayout({
       >
         <CartProvider>
           {children}
+          <Toaster
+            position="bottom-right"
+            options={{
+              fill: "#171717",
+              styles: {
+                title: "font-mono font-bold uppercase text-white tracking-widest text-sm",
+                description: "text-neutral-400 font-sans text-xs",
+              }
+            }}
+          />
         </CartProvider>
       </body>
     </html>
