@@ -9,6 +9,7 @@ import Link from "next/link";
 import { ArrowLeft, CreditCard } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { departments, colombiaData } from "@/lib/colombia-data";
+import { sileo } from "sileo";
 
 export default function CheckoutPage() {
     const { items, total, clearCart } = useCart();
@@ -126,7 +127,10 @@ export default function CheckoutPage() {
         if (!formData.address) missingFields.push("Dirección");
 
         if (missingFields.length > 0) {
-            alert(`Por favor completa los siguientes campos obligatorios: \n- ${missingFields.join('\n- ')}`);
+            sileo.error({
+                title: "Campos incompletos",
+                description: `Por favor completa: ${missingFields.slice(0, 3).join(', ')}${missingFields.length > 3 ? '...' : ''}`
+            });
             return;
         }
 
@@ -144,7 +148,10 @@ export default function CheckoutPage() {
 
         if (error) {
             console.error("Error creating order:", error);
-            alert("Hubo un error al procesar tu pedido. Intenta nuevamente.");
+            sileo.error({
+                title: "Error de pedido",
+                description: "Hubo un error al procesar tu pedido. Intenta nuevamente."
+            });
             return;
         }
 

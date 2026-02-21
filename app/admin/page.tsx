@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { LayoutDashboard, Users, Package, Settings, LogOut, FilePlus, RefreshCcw, Plus, Trash2, Edit, Check, X, FileText } from "lucide-react";
+import { LayoutDashboard, Users, Package, Settings, LogOut, FilePlus, RefreshCcw, Plus, Trash2, Edit, Check, X, FileText, Send, ShoppingBag } from "lucide-react";
 import { sileo } from "sileo";
 import { updateHeroSlide, updateBrand } from "../actions/config";
 
@@ -55,6 +55,40 @@ export default function AdminDashboard() {
             addToast("Error al guardar nota", "error");
         } else {
             setOrdersList(prev => prev.map(o => o.id === id ? { ...o, description: newDesc } : o));
+        }
+    };
+
+    const [isSendingEmail, setIsSendingEmail] = useState<string | null>(null);
+    const [sentOrders, setSentOrders] = useState<string[]>([]);
+
+    const handleSendInvoice = async (order: any) => {
+        setIsSendingEmail(order.id);
+        try {
+            const response = await fetch('/api/send-invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orderId: order.id,
+                    email: order.shipping_info?.email || order.profiles?.email,
+                    name: order.shipping_info?.name || order.profiles?.full_name || "Cliente",
+                    items: order.items,
+                    total: order.total,
+                    shipping_info: order.shipping_info
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                addToast("Factura enviada por correo", "success");
+                setSentOrders(prev => [...prev, order.id]);
+            } else {
+                throw new Error(result.error || "Error al enviar");
+            }
+        } catch (error: any) {
+            console.error("Error sending invoice:", error);
+            addToast("Error: " + error.message, "error");
+        } finally {
+            setIsSendingEmail(null);
         }
     };
 
@@ -675,6 +709,20 @@ export default function AdminDashboard() {
                                                         <FileText size={10} />
                                                         Ver Factura
                                                     </Link>
+                                                    <button
+                                                        onClick={() => handleSendInvoice(order)}
+                                                        disabled={isSendingEmail === order.id}
+                                                        className={`text-[10px] uppercase tracking-widest flex items-center gap-1 w-fit mt-1 px-2 py-1 rounded transition-colors ${sentOrders.includes(order.id) ? 'text-green-500 bg-green-500/10' : 'text-blue-400 hover:bg-blue-400/10'}`}
+                                                    >
+                                                        {isSendingEmail === order.id ? (
+                                                            <RefreshCcw size={10} className="animate-spin" />
+                                                        ) : sentOrders.includes(order.id) ? (
+                                                            <Check size={10} />
+                                                        ) : (
+                                                            <Send size={10} />
+                                                        )}
+                                                        {isSendingEmail === order.id ? "Enviando..." : sentOrders.includes(order.id) ? "Re-Enviar" : "Enviar Correo"}
+                                                    </button>
                                                 </div>
                                             </td>
                                             <td className="p-4 align-top">
@@ -717,7 +765,7 @@ export default function AdminDashboard() {
                                                     <option value="cancelled" className="bg-black text-red-500">Cancelado</option>
                                                 </select>
                                             </td>
-                                            <td className="p-4 align-top text-gold font-bold font-mono text-base">${Number(order.total).toLocaleString()}</td>
+                                            <td className="p-4 align-top text-gold font-bold font-mono text-base">${Number(order.total).toLocaleString('es-CO')}</td>
                                             <td className="p-4 align-top">
                                                 {order.status === 'completed' || order.status === 'cancelled' ? (
                                                     <div className="text-neutral-500 italic text-sm max-w-[200px] break-words">{order.description || "Sin notas"}</div>
@@ -966,16 +1014,23 @@ export default function AdminDashboard() {
             <div className="px-6 md:px-12 lg:px-24 mb-6"><h1 className="text-4xl md:text-6xl font-serif mb-2">Administración</h1></div>
             <div className="px-6 md:px-12 lg:px-24 grid grid-cols-1 lg:grid-cols-4 gap-8 pb-24">
                 <aside className="border-r border-white/10 pr-8 h-full flex flex-col gap-2">
-                    {['dashboard', 'products', 'users', 'orders', 'config'].map(sec => (
+                    {[
+                        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+                        { id: 'products', label: 'Productos', icon: Package },
+                        { id: 'users', label: 'Usuarios', icon: Users },
+                        { id: 'orders', label: 'Pedidos', icon: ShoppingBag },
+                        { id: 'config', label: 'Configuración', icon: Settings },
+                    ].map(sec => (
                         <button
-                            key={sec}
-                            onClick={() => setActiveSection(sec)}
-                            className={`flex items-center gap-3 p-3 rounded-lg text-left font-mono text-sm uppercase transition-colors ${activeSection === sec ? 'bg-white/5 text-gold' : 'text-neutral-400 hover:bg-white/5 hover:text-white'}`}
+                            key={sec.id}
+                            onClick={() => setActiveSection(sec.id)}
+                            className={`flex items-center gap-3 p-3 rounded-lg text-left font-mono text-sm uppercase transition-colors ${activeSection === sec.id ? 'bg-white/5 text-gold' : 'text-neutral-400 hover:bg-white/5 hover:text-white'}`}
                         >
-                            {sec}
+                            <sec.icon size={18} />
+                            {sec.label}
                         </button>
                     ))}
-                    <div className="mt-auto pt-8"><button onClick={handleLogout} className="text-red-500 text-sm font-mono flex items-center gap-2"><LogOut size={16} /> Salir</button></div>
+                    <div className="mt-auto pt-8"><button onClick={handleLogout} className="text-red-500 text-sm font-mono flex items-center gap-2 px-3 py-2 hover:bg-red-500/10 rounded-lg transition-colors w-full"><LogOut size={16} /> Salir</button></div>
                 </aside>
                 <div className="lg:col-span-3">{renderContent()}</div>
             </div>

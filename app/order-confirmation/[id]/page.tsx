@@ -8,6 +8,7 @@ import { Footer } from "@/components/Footer";
 import { CheckCircle, Printer, Mail, ArrowLeft, ShoppingBag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { sileo } from "sileo";
 
 export default function OrderConfirmationPage() {
     const params = useParams();
@@ -53,7 +54,10 @@ export default function OrderConfirmationPage() {
 
             // Check essential data
             if (!order.shipping_info?.email) {
-                alert("Error: No hay correo electrónico asociado al pedido.");
+                sileo.error({
+                    title: "Correo no encontrado",
+                    description: "No hay un correo asociado a este pedido."
+                });
                 setSendingEmail(false);
                 return;
             }
@@ -82,11 +86,17 @@ export default function OrderConfirmationPage() {
                 setTimeout(() => setEmailSent(false), 5000);
             } else {
                 console.error("Server responded with error:", data);
-                alert(`Error al enviar: ${data.error || "Error desconocido"}`);
+                sileo.error({
+                    title: "Error al enviar",
+                    description: data.error || "Error desconocido"
+                });
             }
         } catch (error: any) {
             console.error("Catch Error sending email:", error);
-            alert("Hubo un problema al intentar enviar el correo. Por favor intenta nuevamente.");
+            sileo.error({
+                title: "Error de red",
+                description: "Hubo un problema al intentar enviar el correo. Por favor intenta nuevamente."
+            });
         } finally {
             setSendingEmail(false);
         }

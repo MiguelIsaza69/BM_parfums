@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { sileo } from "sileo";
 
 type AuthView = "login" | "register" | "forgot-password";
 
@@ -87,7 +88,10 @@ function LoginForm({ setView, onClose }: { setView: (v: AuthView) => void, onClo
             console.error("Login Error:", err);
             // Ignore AbortError if it happens during navigation
             if (err.name !== 'AbortError') {
-                setError(err.message || "Error al iniciar sesión");
+                sileo.error({
+                    title: "Error al iniciar sesión",
+                    description: err.message || "Credenciales incorrectas"
+                });
                 setLoading(false);
             }
         }
@@ -95,7 +99,6 @@ function LoginForm({ setView, onClose }: { setView: (v: AuthView) => void, onClo
 
     return (
         <div className="flex flex-col gap-6">
-            {error && <div className="p-3 bg-red-900/20 border border-red-500/50 text-red-500 text-xs font-mono">{error}</div>}
 
             <Input label="Correo Electrónico" type="email" placeholder="ejemplo@email.com" value={email} onChange={setEmail} />
             <Input label="Contraseña" type="password" placeholder="••••••••" value={password} onChange={setPassword} />
@@ -161,11 +164,17 @@ function RegisterForm({ setView }: { setView: (v: AuthView) => void }) {
 
             if (error) throw error;
 
-            alert("Registro exitoso. Por favor revisa tu correo para confirmar.");
+            sileo.success({
+                title: "Registro exitoso",
+                description: "Por favor revisa tu correo para confirmar tu cuenta."
+            });
             setView("login");
 
         } catch (err: any) {
-            setError(err.message || "Error al registrarse");
+            sileo.error({
+                title: "Error al registrarse",
+                description: err.message
+            });
         } finally {
             setLoading(false);
         }
@@ -173,7 +182,6 @@ function RegisterForm({ setView }: { setView: (v: AuthView) => void }) {
 
     return (
         <div className="flex flex-col gap-5">
-            {error && <div className="p-3 bg-red-900/20 border border-red-500/50 text-red-500 text-xs font-mono">{error}</div>}
 
             <Input label="Nombre Completo" type="text" placeholder="John Doe" value={fullName} onChange={setFullName} />
             <Input label="Correo Electrónico" type="email" placeholder="ejemplo@email.com" value={email} onChange={setEmail} />
@@ -213,17 +221,22 @@ function RegisterForm({ setView }: { setView: (v: AuthView) => void }) {
 function ForgotPasswordForm({ setView }: { setView: (v: AuthView) => void }) {
     const [email, setEmail] = useState("");
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState<string | null>(null);
 
     const handleReset = async () => {
         setLoading(true);
-        setMessage(null);
         try {
             const { error } = await supabase.auth.resetPasswordForEmail(email);
             if (error) throw error;
-            setMessage("Se ha enviado un correo de recuperación.");
+            sileo.success({
+                title: "Enlace enviado",
+                description: "Se ha enviado un correo de recuperación a tu cuenta."
+            });
+            setView("login");
         } catch (error: any) {
-            setMessage("Error: " + error.message);
+            sileo.error({
+                title: "Error de recuperación",
+                description: error.message
+            });
         } finally {
             setLoading(false);
         }
@@ -234,8 +247,6 @@ function ForgotPasswordForm({ setView }: { setView: (v: AuthView) => void }) {
             <p className="text-neutral-400 text-sm font-mono leading-relaxed">
                 Ingresa tu correo electrónico y te enviaremos instrucciones para restablecer tu contraseña.
             </p>
-
-            {message && <div className="p-3 bg-neutral-800 border border-white/20 text-white text-xs font-mono">{message}</div>}
 
             <Input label="Correo Electrónico" type="email" placeholder="ejemplo@email.com" value={email} onChange={setEmail} />
 
