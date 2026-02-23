@@ -38,7 +38,7 @@ export function ProductGrid() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {products.map((product) => {
+                {products.map((product, idx) => {
                     // Robust Image Extraction
                     let mainImage = "/placeholder.jpg";
                     try {
@@ -57,38 +57,51 @@ export function ProductGrid() {
                     if (!mainImage || mainImage.length < 5) mainImage = "/placeholder.jpg";
 
                     return (
-                        <div key={product.id} className="group relative border border-white/10 p-6 hover:border-gold/50 transition-colors bg-neutral-900/20">
-                            <div className="relative h-[250px] w-full flex items-center justify-center mb-6 bg-white p-4 overflow-hidden">
+                        <div
+                            key={product.id}
+                            className="group relative border border-white/5 p-6 hover:border-gold/30 transition-all duration-700 bg-neutral-900/10 animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
+                            style={{ animationDelay: `${idx * 100}ms` }}
+                        >
+                            <div className="relative h-[280px] w-full flex items-center justify-center mb-6 bg-white p-6 overflow-hidden transition-transform duration-700 group-hover:shadow-2xl shadow-black/50">
                                 <Image
                                     src={mainImage}
                                     alt={product.name}
                                     width={300}
                                     height={300}
-                                    className="object-contain max-h-full mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
+                                    className="object-contain max-h-full mix-blend-multiply transition-all duration-1000 ease-out group-hover:scale-110 group-hover:rotate-1"
                                 />
 
-                                {/* Hover Overlay */}
-                                <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center text-center p-6 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-4 group-hover:translate-y-0 z-10">
-                                    <p className="text-gray-300 text-xs mb-6 leading-relaxed font-mono line-clamp-3">{product.description || "Sin descripción"}</p>
-                                    <button
-                                        onClick={() => addItem(product)}
-                                        className="bg-gold text-black font-bold uppercase py-2 px-6 min-w-[140px] text-xs hover:bg-white transition-colors flex items-center gap-2 mb-2 w-auto justify-center"
-                                    >
-                                        <ShoppingCart size={14} />
-                                        AGREGAR
-                                    </button>
-                                    <Link href={`/product/${product.id}`} className="w-full">
-                                        <button className="w-full text-white border border-white/30 font-mono uppercase py-2 px-4 text-[10px] hover:border-gold hover:text-gold transition-colors">
-                                            Ver Detalles
+                                {/* Subtle Loading Overlay if needed, but here we focus on Hover Overlay */}
+                                <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center text-center p-8 opacity-0 group-hover:opacity-100 transition-all duration-500 ease-in-out backdrop-blur-sm z-10 invisible group-hover:visible translate-y-2 group-hover:translate-y-0">
+                                    <div className="w-12 h-px bg-gold/50 mb-6 scale-x-0 group-hover:scale-x-100 transition-transform duration-700 delay-100" />
+                                    <p className="text-neutral-400 text-[10px] mb-8 leading-relaxed font-mono uppercase tracking-[3px] line-clamp-4 px-2 italic">{product.description || "Nuestra esencia única, capturada en un frasco de alta perfumería."}</p>
+
+                                    <div className="flex flex-col gap-3 w-full max-w-[160px]">
+                                        <button
+                                            onClick={() => addItem(product)}
+                                            className="bg-gold text-black font-bold uppercase py-3 px-4 text-[10px] hover:bg-white hover:tracking-[2px] transition-all duration-300 flex items-center gap-2 justify-center"
+                                        >
+                                            <ShoppingCart size={12} />
+                                            AGREGAR
                                         </button>
-                                    </Link>
+                                        <Link href={`/product/${product.id}`} className="w-full">
+                                            <button className="w-full text-white/50 border border-white/10 font-mono uppercase py-2 px-4 text-[9px] hover:border-white hover:text-white hover:bg-white/5 transition-all duration-300 tracking-[2px]">
+                                                Detalles
+                                            </button>
+                                        </Link>
+                                    </div>
+                                    <div className="w-12 h-px bg-gold/50 mt-6 scale-x-0 group-hover:scale-x-100 transition-transform duration-700 delay-200" />
                                 </div>
                             </div>
 
-                            <div className="flex flex-col items-center text-center">
-                                <p className="text-[10px] text-muted mb-1 font-mono tracking-widest uppercase">{product.brands?.name || "BM"}</p>
-                                <h3 className="text-lg font-serif mb-2 truncate w-full">{product.name}</h3>
-                                <p className="text-gold font-mono text-sm">${Number(product.price).toLocaleString()}</p>
+                            <div className="flex flex-col items-center text-center transition-all duration-500 group-hover:translate-y-[-4px]">
+                                <p className="text-[9px] text-gold/60 mb-2 font-mono tracking-[4px] uppercase">{product.brands?.name || "BM PARFUMS"}</p>
+                                <h3 className="text-base font-serif mb-3 truncate w-full tracking-tight text-white/90 group-hover:text-white transition-colors">{product.name}</h3>
+                                <div className="flex items-center gap-2">
+                                    <div className="h-px w-4 bg-white/10 group-hover:w-8 group-hover:bg-gold/30 transition-all duration-500" />
+                                    <p className="text-gold font-mono text-xs font-bold tracking-widest">${Number(product.price).toLocaleString('es-CO')}</p>
+                                    <div className="h-px w-4 bg-white/10 group-hover:w-8 group-hover:bg-gold/30 transition-all duration-500" />
+                                </div>
                             </div>
                         </div>
                     );

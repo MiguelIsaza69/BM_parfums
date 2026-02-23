@@ -702,7 +702,7 @@ export default function AdminDashboard() {
                                                 <div className="flex flex-col gap-1">
                                                     <span className="text-white/50 font-mono text-xs">{order.id.substring(0, 8)}...</span>
                                                     <Link
-                                                        href={`/order-confirmation/${order.id}`}
+                                                        href={`/order-confirmation/${order.id}?from=admin`}
                                                         target="_blank"
                                                         className="text-[10px] text-gold uppercase tracking-widest hover:underline flex items-center gap-1 w-fit"
                                                     >

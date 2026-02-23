@@ -71,14 +71,14 @@ export async function POST(request: Request) {
                 </div>
 
                 <div style="text-align: center; padding: 20px; font-size: 12px; color: #888;">
-                    <p>Si tienes alguna pregunta, contáctanos respondiendo a este correo.</p>
+                    <p>Si tienes alguna pregunta, contáctanos escribiendo a <strong>Bmparfums.med@gmail.com</strong></p>
                     <p>&copy; ${new Date().getFullYear()} BM Parfums. Todos los derechos reservados.</p>
                 </div>
             </div>
         `;
 
         const { data, error } = await resend.emails.send({
-            from: 'BM Parfums <ventas@send.bmparfums.com>',
+            from: 'BM Parfums <ventas@bmparfums.com>',
             to: [finalRecipient],
             subject: `Confirmación de Pedido #${orderId.slice(0, 8).toUpperCase()} - BM Parfums`,
             html: emailHtml,

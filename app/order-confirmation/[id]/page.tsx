@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { CheckCircle, Printer, Mail, ArrowLeft, ShoppingBag } from "lucide-react";
+import { CheckCircle, Printer, Mail, ArrowLeft, ShoppingBag, LayoutDashboard } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { sileo } from "sileo";
@@ -13,6 +13,9 @@ import { sileo } from "sileo";
 export default function OrderConfirmationPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const isAdmin = searchParams.get('from') === 'admin';
+
     const [order, setOrder] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [sendingEmail, setSendingEmail] = useState(false);
@@ -30,7 +33,7 @@ export default function OrderConfirmationPage() {
 
             if (error) {
                 console.error("Error fetching order:", error);
-                router.push('/catalogo'); // Fallback if order not found
+                router.push(isAdmin ? '/admin' : '/catalogo'); // Fallback
                 return;
             }
 
@@ -39,7 +42,7 @@ export default function OrderConfirmationPage() {
         };
 
         fetchOrder();
-    }, [params?.id, router]);
+    }, [params?.id, router, isAdmin]);
 
     const handlePrint = () => {
         window.print();
@@ -82,7 +85,7 @@ export default function OrderConfirmationPage() {
 
             if (response.ok && data.success) {
                 setEmailSent(true);
-                // alert("¡Correo enviado exitosamente! (Simulación)"); // Removed alert for smoother UX, button state is enough
+                // Alert removed for smoother UX
                 setTimeout(() => setEmailSent(false), 5000);
             } else {
                 console.error("Server responded with error:", data);
@@ -122,40 +125,59 @@ export default function OrderConfirmationPage() {
 
             <div className="container mx-auto px-6 md:px-12 lg:px-24 pt-32 pb-24 print:pt-8 print:pb-8">
 
-                {/* Status Banner */}
-                <div className="bg-green-500/10 border border-green-500/20 p-8 rounded-lg mb-12 flex flex-col items-center text-center print:hidden">
-                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4 text-black">
-                        <CheckCircle size={32} strokeWidth={3} />
+                {/* Status Banner - Only for Customers */}
+                {!isAdmin && (
+                    <div className="bg-green-500/10 border border-green-500/20 p-8 rounded-lg mb-12 flex flex-col items-center text-center print:hidden">
+                        <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4 text-black">
+                            <CheckCircle size={32} strokeWidth={3} />
+                        </div>
+                        <h1 className="text-3xl font-serif text-white mb-2">¡Pedido Confirmado!</h1>
+                        <p className="text-neutral-400 font-mono text-sm max-w-md">
+                            Tu pedido ha sido aprobado exitosamente. Hemos enviado una copia de la factura a tu correo electrónico.
+                        </p>
                     </div>
-                    <h1 className="text-3xl font-serif text-white mb-2">¡Pedido Confirmado!</h1>
-                    <p className="text-neutral-400 font-mono text-sm max-w-md">
-                        Tu pedido ha sido aprobado exitosamente. Hemos enviado una copia de la factura a tu correo electrónico.
-                    </p>
-                </div>
+                )}
 
                 {/* Actions Bar */}
                 <div className="flex flex-wrap gap-4 mb-8 print:hidden">
-                    <Link href="/catalogo" className="flex items-center gap-2 px-6 py-3 border border-white/20 hover:bg-white/10 rounded transition-colors text-sm font-mono uppercase tracking-widest text-neutral-300">
-                        <ArrowLeft size={16} /> Volver a la Tienda
-                    </Link>
-                    <Link href="/dashboard" className="flex items-center gap-2 px-6 py-3 border border-white/20 hover:bg-white/10 rounded transition-colors text-sm font-mono uppercase tracking-widest text-neutral-300">
-                        <ShoppingBag size={16} /> Mis Pedidos
-                    </Link>
-                    <div className="flex-1"></div>
-                    <button
-                        onClick={handleSendEmail}
-                        disabled={sendingEmail || emailSent}
-                        className={`flex items-center gap-2 px-6 py-3 border border-gold text-gold hover:bg-gold hover:text-black rounded transition-colors text-sm font-mono uppercase tracking-widest ${sendingEmail ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                        <Mail size={16} />
-                        {sendingEmail ? 'Enviando...' : emailSent ? '¡Enviado!' : 'Enviar a Correo'}
-                    </button>
-                    <button
-                        onClick={handlePrint}
-                        className="flex items-center gap-2 px-6 py-3 bg-white text-black hover:bg-neutral-200 rounded transition-colors text-sm font-mono uppercase tracking-widest font-bold"
-                    >
-                        <Printer size={16} /> Imprimir Factura
-                    </button>
+                    {isAdmin ? (
+                        <>
+                            <Link href="/admin" className="flex items-center gap-2 px-6 py-3 bg-neutral-900 border border-white/20 hover:bg-neutral-800 rounded transition-colors text-sm font-mono uppercase tracking-widest text-white">
+                                <LayoutDashboard size={16} /> Volver al Panel Admin
+                            </Link>
+                            <div className="flex-1"></div>
+                            <button
+                                onClick={handlePrint}
+                                className="flex items-center gap-2 px-6 py-3 bg-gold text-black hover:bg-white rounded transition-colors text-sm font-mono uppercase tracking-widest font-bold"
+                            >
+                                <Printer size={16} /> Imprimir Factura
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <Link href="/catalogo" className="flex items-center gap-2 px-6 py-3 border border-white/20 hover:bg-white/10 rounded transition-colors text-sm font-mono uppercase tracking-widest text-neutral-300">
+                                <ArrowLeft size={16} /> Volver a la Tienda
+                            </Link>
+                            <Link href="/dashboard" className="flex items-center gap-2 px-6 py-3 border border-white/20 hover:bg-white/10 rounded transition-colors text-sm font-mono uppercase tracking-widest text-neutral-300">
+                                <ShoppingBag size={16} /> Mis Pedidos
+                            </Link>
+                            <div className="flex-1"></div>
+                            <button
+                                onClick={handleSendEmail}
+                                disabled={sendingEmail || emailSent}
+                                className={`flex items-center gap-2 px-6 py-3 border border-gold text-gold hover:bg-gold hover:text-black rounded transition-colors text-sm font-mono uppercase tracking-widest ${sendingEmail ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <Mail size={16} />
+                                {sendingEmail ? 'Enviando...' : emailSent ? '¡Enviado!' : 'Enviar a Correo'}
+                            </button>
+                            <button
+                                onClick={handlePrint}
+                                className="flex items-center gap-2 px-6 py-3 bg-white text-black hover:bg-neutral-200 rounded transition-colors text-sm font-mono uppercase tracking-widest font-bold"
+                            >
+                                <Printer size={16} /> Imprimir Factura
+                            </button>
+                        </>
+                    )}
                 </div>
 
                 {/* Invoice Container */}
@@ -244,7 +266,7 @@ export default function OrderConfirmationPage() {
                     {/* Footer Warning */}
                     <div className="mt-16 pt-8 border-t border-neutral-200 text-center">
                         <p className="text-[10px] font-mono uppercase text-neutral-400">
-                            Gracias por tu compra. Si tienes alguna pregunta, contáctanos en soporte@bmparfums.com
+                            Gracias por tu compra. Si tienes alguna pregunta, contáctanos en Bmparfums.med@gmail.com
                         </p>
                     </div>
 

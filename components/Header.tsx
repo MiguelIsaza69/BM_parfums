@@ -144,8 +144,12 @@ export function Header() {
         <>
             <header className="fixed top-0 left-0 w-full z-50 px-8 py-8 flex justify-between items-center transition-all duration-300 bg-gradient-to-b from-black from-0% via-black/60 to-transparent pb-12">
                 {/* Logo */}
-                <Link href="/" className="text-4xl font-black tracking-tighter hover:text-gold transition-colors">
-                    BM.
+                <Link href="/" className="hover:scale-105 transition-transform">
+                    <img
+                        src="https://res.cloudinary.com/dbeaem1xr/image/upload/v1771865096/WhatsApp_Image_2026-02-11_at_3.37.42_PM-removebg-preview_lz7whv.png"
+                        alt="BM Parfums"
+                        className="h-24 w-auto object-contain"
+                    />
                 </Link>
 
                 {/* Right Side Container */}
@@ -160,23 +164,20 @@ export function Header() {
                                 Panel Admin
                             </Link>
                         )}
-                        {["Categorias", "Marcas", "Catalogo", "Contacto"].map((item) => {
-                            const paths: Record<string, string> = {
-                                "Categorias": "/categorias",
-                                "Marcas": "/marcas",
-                                "Catalogo": "/catalogo",
-                                "Contacto": "/#contacto"
-                            };
-                            return (
-                                <Link
-                                    key={item}
-                                    href={paths[item] || "#"}
-                                    className="text-sm font-mono uppercase tracking-[2px] hover:text-gold hover:line-through transition-all"
-                                >
-                                    {item}
-                                </Link>
-                            );
-                        })}
+                        {[
+                            { name: "Categorias", path: "/categorias" },
+                            { name: "Marcas", path: "/marcas" },
+                            { name: "Catalogo", path: "/catalogo" },
+                            { name: "Contacto", path: "/contacto" }
+                        ].map((item) => (
+                            <Link
+                                key={item.name}
+                                href={item.path}
+                                className="text-sm font-mono uppercase tracking-[2px] hover:text-gold hover:line-through transition-all"
+                            >
+                                {item.name}
+                            </Link>
+                        ))}
                     </nav>
 
                     {/* Actions */}
@@ -326,24 +327,21 @@ export function Header() {
                 {/* Mobile Nav Overlay */}
                 {isMobileMenuOpen && (
                     <div className="absolute top-full left-0 w-full bg-black/95 border-b border-white/10 p-8 flex flex-col gap-6 md:hidden glass-panel">
-                        {["Categorias", "Marcas", "Catalogo", "Contacto"].map((item) => {
-                            const paths: Record<string, string> = {
-                                "Categorias": "/categorias",
-                                "Marcas": "/marcas",
-                                "Catalogo": "/catalogo",
-                                "Contacto": "/#contacto"
-                            };
-                            return (
-                                <Link
-                                    key={item}
-                                    href={paths[item] || "#"}
-                                    className="text-lg font-mono uppercase tracking-widest hover:text-gold"
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    {item}
-                                </Link>
-                            );
-                        })}
+                        {[
+                            { name: "Categorias", path: "/categorias" },
+                            { name: "Marcas", path: "/marcas" },
+                            { name: "Catalogo", path: "/catalogo" },
+                            { name: "Contacto", path: "/contacto" }
+                        ].map((item) => (
+                            <Link
+                                key={item.name}
+                                href={item.path}
+                                className="text-lg font-mono uppercase tracking-widest hover:text-gold"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                                {item.name}
+                            </Link>
+                        ))}
                         <button
                             onClick={() => { handleUserClick(); setIsMobileMenuOpen(false); }}
                             className="text-lg font-mono uppercase tracking-widest hover:text-gold text-left flex items-center gap-2"

@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { sileo } from "sileo";
+import { RegisterForm } from "./RegisterForm";
 
 type AuthView = "login" | "register" | "forgot-password";
 
@@ -131,92 +132,6 @@ function LoginForm({ setView, onClose }: { setView: (v: AuthView) => void, onClo
     );
 }
 
-function RegisterForm({ setView }: { setView: (v: AuthView) => void }) {
-    const [fullName, setFullName] = useState("");
-    const [email, setEmail] = useState("");
-    const [phoneCode, setPhoneCode] = useState("+57");
-    const [phone, setPhone] = useState("");
-    const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const handleRegister = async () => {
-        if (password !== confirmPassword) {
-            setError("Las contraseñas no coinciden");
-            return;
-        }
-
-        setLoading(true);
-        setError(null);
-
-        try {
-            const { error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: {
-                        full_name: fullName,
-                        phone: `${phoneCode} ${phone}`,
-                    },
-                },
-            });
-
-            if (error) throw error;
-
-            sileo.success({
-                title: "Registro exitoso",
-                description: "Por favor revisa tu correo para confirmar tu cuenta."
-            });
-            setView("login");
-
-        } catch (err: any) {
-            sileo.error({
-                title: "Error al registrarse",
-                description: err.message
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="flex flex-col gap-5">
-
-            <Input label="Nombre Completo" type="text" placeholder="John Doe" value={fullName} onChange={setFullName} />
-            <Input label="Correo Electrónico" type="email" placeholder="ejemplo@email.com" value={email} onChange={setEmail} />
-
-            <div className="flex gap-4">
-                <div className="w-1/3">
-                    <Input label="Indicativo" type="text" placeholder="+57" value={phoneCode} onChange={setPhoneCode} />
-                </div>
-                <div className="flex-1">
-                    <Input label="Teléfono" type="tel" placeholder="300 123 4567" value={phone} onChange={setPhone} />
-                </div>
-            </div>
-
-            <Input label="Contraseña" type="password" placeholder="••••••••" value={password} onChange={setPassword} />
-            <Input label="Confirmar Contraseña" type="password" placeholder="••••••••" value={confirmPassword} onChange={setConfirmPassword} />
-
-            <button
-                onClick={handleRegister}
-                disabled={loading}
-                className="bg-gold text-black font-bold uppercase py-4 hover:bg-white transition-colors font-mono tracking-widest mt-4 disabled:opacity-50"
-            >
-                {loading ? "Registrando..." : "Registrarse"}
-            </button>
-
-            <div className="mt-6 text-center">
-                <button
-                    onClick={() => setView("login")}
-                    className="text-neutral-500 text-xs uppercase font-mono hover:text-white transition-colors"
-                >
-                    ← Volver al inicio de sesión
-                </button>
-            </div>
-        </div>
-    );
-}
 
 function ForgotPasswordForm({ setView }: { setView: (v: AuthView) => void }) {
     const [email, setEmail] = useState("");
