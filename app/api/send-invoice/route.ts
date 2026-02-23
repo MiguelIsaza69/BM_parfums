@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-// Initialize Resend with the provided API Key
-const resend = new Resend('re_jW4y5fAj_GnFcrF6f1Qd7bZtkyVvggMAA');
+// Initialize Resend with the provided API Key from env
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
     try {
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         `;
 
         const { data, error } = await resend.emails.send({
-            from: 'BM Parfums <onboarding@resend.dev>', // Default sender for testing
+            from: 'BM Parfums <ventas@send.bmparfums.com>',
             to: [finalRecipient],
             subject: `Confirmación de Pedido #${orderId.slice(0, 8).toUpperCase()} - BM Parfums`,
             html: emailHtml,
