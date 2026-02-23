@@ -113,10 +113,13 @@ export default function CheckoutPage() {
         }
     };
 
-    const handlePayment = async () => {
-        console.log("Procesando pago...", formData);
+    const [isProcessing, setIsProcessing] = useState(false);
 
-        // 0. Validations (Check specifically which fields are missing)
+    const handlePayment = async () => {
+        setIsProcessing(true);
+        console.log("Iniciando proceso de pago...", formData);
+
+        // 0. Validations
         const missingFields = [];
         if (!formData.name) missingFields.push("Nombre Completo");
         if (!formData.email) missingFields.push("Email");
@@ -131,13 +134,14 @@ export default function CheckoutPage() {
                 title: "Campos incompletos",
                 description: `Por favor completa: ${missingFields.slice(0, 3).join(', ')}${missingFields.length > 3 ? '...' : ''}`
             });
+            setIsProcessing(false);
             return;
         }
 
         // 1. Get User
         const { data: { user } } = await supabase.auth.getUser();
 
-        // 2 Create Order
+        // 2 Create Order in 'pending' status
         const { data: order, error } = await supabase.from('orders').insert([{
             user_id: user?.id || null,
             total: total,
@@ -152,33 +156,58 @@ export default function CheckoutPage() {
                 title: "Error de pedido",
                 description: "Hubo un error al procesar tu pedido. Intenta nuevamente."
             });
+            setIsProcessing(false);
             return;
         }
 
-        // 3. Clear Cart
-        clearCart();
+        // 3. Prepare Wompi Data
+        const amountInCents = total * 100;
+        const reference = order.id;
+        const currency = 'COP';
 
-
-        // 4. Send Email Invoice (Fire and forget or await if critical)
         try {
-            await fetch('/api/send-invoice', {
+            // 4. Get Integrity Signature from Server
+            const sigResponse = await fetch('/api/wompi/integrity', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    orderId: order.id,
-                    email: formData.email,
-                    name: formData.name,
-                    items: items,
-                    total: total,
-                    shipping_info: formData
-                })
+                body: JSON.stringify({ reference, amountInCents, currency })
             });
-        } catch (e) {
-            console.error("Error sending invoice email:", e);
-        }
+            const { signature } = await sigResponse.json();
 
-        // 5. Redirect
-        window.location.href = `/order-confirmation/${order.id}`;
+            if (!signature) throw new Error("Could not generate signature");
+
+            // 5. Redirect to Wompi Checkout
+            const publicKey = process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY;
+            const redirectUrl = `${window.location.origin}/order-confirmation/${order.id}`;
+
+            const wompiUrl = new URL('https://checkout.wompi.co/p/');
+            wompiUrl.searchParams.append('public-key', publicKey || '');
+            wompiUrl.searchParams.append('currency', currency);
+            wompiUrl.searchParams.append('amount-in-cents', amountInCents.toString());
+            wompiUrl.searchParams.append('reference', reference);
+            wompiUrl.searchParams.append('signature:integrity', signature);
+            wompiUrl.searchParams.append('redirect-url', redirectUrl);
+
+            // Optional: Pre-fill customer data
+            wompiUrl.searchParams.append('customer-data:email', formData.email);
+            wompiUrl.searchParams.append('customer-data:full-name', formData.name);
+            wompiUrl.searchParams.append('customer-data:phone-number', formData.phone.replace(/\D/g, ''));
+            wompiUrl.searchParams.append('shipping-address:address-line-1', `${formData.address}, ${formData.neighborhood}`);
+            wompiUrl.searchParams.append('shipping-address:city', formData.city);
+            wompiUrl.searchParams.append('shipping-address:phone-number', formData.phone.replace(/\D/g, ''));
+            wompiUrl.searchParams.append('shipping-address:region', formData.department);
+
+            // Redirect to Wompi
+            window.location.href = wompiUrl.toString();
+
+        } catch (err) {
+            console.error("Payment setup error:", err);
+            sileo.error({
+                title: "Error de pasarela",
+                description: "No pudimos conectar con la pasarela de pago. Intenta más tarde."
+            });
+            setIsProcessing(false);
+        }
     };
 
     if (items.length === 0) {
@@ -366,8 +395,12 @@ export default function CheckoutPage() {
                                 </div>
                             </div>
 
-                            <button type="submit" className="mt-4 bg-gold text-black font-bold uppercase py-4 hover:bg-white transition-colors tracking-widest">
-                                Proceder al Pago
+                            <button
+                                type="submit"
+                                disabled={isProcessing}
+                                className="mt-4 bg-gold text-black font-bold uppercase py-4 hover:bg-white transition-colors tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isProcessing ? "Procesando..." : "Proceder al Pago"}
                             </button>
                         </form>
                     </div>
