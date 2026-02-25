@@ -165,9 +165,11 @@ export default function CheckoutPage() {
         }
 
         // 3. Prepare Wompi Data (EXACT INTEGERS ONLY)
-        const amountInCents = Math.floor(total * 100);
+        const amountInCents = Math.round(total * 100);
         const reference = order.id;
         const currency = 'COP';
+
+        console.log(`[Wompi] Preparando pago - Ref: ${reference}, Centavos: ${amountInCents}`);
 
         try {
             // 4. Get Integrity Signature from Server

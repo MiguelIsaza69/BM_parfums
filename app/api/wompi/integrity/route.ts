@@ -13,9 +13,14 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Configuración incompleta' }, { status: 500 });
         }
 
+        // Aseguramos que amountInCents sea un número
+        const amount = Number(amountInCents);
+
         // Formula: SHA256(reference + amountInCents + currency + secret)
-        const chain = `${reference}${amountInCents}${currency}${integritySecret}`;
+        const chain = `${reference}${amount}${currency}${integritySecret}`;
         const signature = crypto.createHash('sha256').update(chain).digest('hex');
+
+        console.log(`[Wompi] Firma generada para Ref: ${reference}, Monto: ${amount}, Moneda: ${currency}`);
 
         return NextResponse.json({ signature });
     } catch (error) {
