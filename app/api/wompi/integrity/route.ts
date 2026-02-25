@@ -22,7 +22,11 @@ export async function POST(request: Request) {
         const chain = `${cleanReference}${cleanAmount}${cleanCurrency}${integritySecret}`;
         const signature = crypto.createHash('sha256').update(chain).digest('hex');
 
-        console.log(`[Wompi Server] Firmando cadena: ${cleanReference}${cleanAmount}${cleanCurrency}***`);
+        console.log(`[Wompi Server] Generando firma:
+        - Ref: ${cleanReference}
+        - Monto: ${cleanAmount}
+        - Secret empieza por: ${integritySecret.substring(0, 8)}...
+        - Hash generado: ${signature.substring(0, 10)}...`);
 
         return NextResponse.json({ signature });
     } catch (error) {
