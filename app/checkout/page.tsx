@@ -213,12 +213,14 @@ export default function CheckoutPage() {
                         customerData: {
                             email: formData.email,
                             fullName: formData.name,
-                            phoneNumber: formData.phone
+                            phoneNumber: formData.phone,
+                            phoneNumberPrefix: '+57'
                         },
                         shippingAddress: {
                             addressLine1: `${formData.address}${formData.apartment ? ' - ' + formData.apartment : ''}`,
                             city: formData.city,
                             phoneNumber: formData.phone,
+                            phoneNumberPrefix: '+57',
                             region: formData.department,
                             country: 'CO'
                         }
