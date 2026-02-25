@@ -11,7 +11,13 @@ export async function POST(request: Request) {
         const cleanCurrency = String(currency).trim();
 
         // Wompi Integrity Secret - Limpieza profunda
-        const integritySecret = (process.env.WOMPI_INTEGRITY_SECRET || '').replace(/\s/g, '');
+        const rawSecret = process.env.WOMPI_INTEGRITY_SECRET || '';
+        const integritySecret = rawSecret.replace(/\s/g, '');
+
+        console.log(`[Wompi Server Debug] 
+        - Secreto detectado: ${integritySecret ? 'SI' : 'NO'} 
+        - Longitud: ${integritySecret.length}
+        - Empieza por: ${integritySecret.substring(0, 15)}...`);
 
         if (!integritySecret) {
             console.error("[Wompi] ERROR: WOMPI_INTEGRITY_SECRET no definida en .env.local");
