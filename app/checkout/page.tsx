@@ -202,6 +202,13 @@ export default function CheckoutPage() {
                     // Usar llave de variable de entorno o fallback del dashboard
                     const checkoutKey = publicKey || "pub_test_ouThMFD7jJjB5fyKV6NaJU1i0GWUEWa0";
 
+                    // Limpiar teléfono (solo números) para evitar errores de validación
+                    const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^57/, '');
+
+                    // Asegurar que la dirección tenga al menos 10 caracteres (requisito de Wompi)
+                    const fullAddress = `${formData.address}${formData.apartment ? ' - ' + formData.apartment : ''}`;
+                    const validatedAddress = fullAddress.length < 10 ? `${fullAddress} - Colombia` : fullAddress;
+
                     // @ts-ignore
                     const checkout = new window.WidgetCheckout({
                         currency: 'COP',
@@ -213,13 +220,13 @@ export default function CheckoutPage() {
                         customerData: {
                             email: formData.email,
                             fullName: formData.name,
-                            phoneNumber: formData.phone,
+                            phoneNumber: cleanPhone,
                             phoneNumberPrefix: '+57'
                         },
                         shippingAddress: {
-                            addressLine1: `${formData.address}${formData.apartment ? ' - ' + formData.apartment : ''}`,
+                            addressLine1: validatedAddress,
                             city: formData.city,
-                            phoneNumber: formData.phone,
+                            phoneNumber: cleanPhone,
                             phoneNumberPrefix: '+57',
                             region: formData.department,
                             country: 'CO'
