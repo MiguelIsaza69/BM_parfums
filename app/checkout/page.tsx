@@ -209,8 +209,8 @@ export default function CheckoutPage() {
                     const fullAddress = `${formData.address}${formData.apartment ? ' - ' + formData.apartment : ''}`;
                     const validatedAddress = fullAddress.length < 10 ? `${fullAddress} - Colombia` : fullAddress;
 
-                    // @ts-ignore
-                    const checkout = new window.WidgetCheckout({
+                    // Log para depuración manual si el widget falla
+                    const checkoutOptions = {
                         currency: 'COP',
                         amountInCents: amountInCents,
                         reference: reference,
@@ -227,11 +227,15 @@ export default function CheckoutPage() {
                             addressLine1: validatedAddress,
                             city: formData.city,
                             phoneNumber: cleanPhone,
-                            phoneNumberPrefix: '+57',
                             region: formData.department,
                             country: 'CO'
                         }
-                    });
+                    };
+
+                    console.log("Opciones enviadas a Wompi:", checkoutOptions);
+
+                    // @ts-ignore
+                    const checkout = new window.WidgetCheckout(checkoutOptions);
 
                     checkout.open((result: any) => {
                         console.log('Transaction Result:', result);
