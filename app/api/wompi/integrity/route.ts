@@ -5,22 +5,24 @@ export async function POST(request: Request) {
     try {
         const { reference, amountInCents, currency } = await request.json();
 
-        // Wompi Integrity Secret (from Dashboard)
-        const integritySecret = (process.env.WOMPI_INTEGRITY_SECRET || '').trim();
+        // Limpiar inputs
+        const cleanReference = String(reference).trim();
+        const cleanAmount = String(Math.round(Number(amountInCents)));
+        const cleanCurrency = String(currency).trim();
+
+        // Wompi Integrity Secret - Limpieza profunda
+        const integritySecret = (process.env.WOMPI_INTEGRITY_SECRET || '').replace(/\s/g, '');
 
         if (!integritySecret) {
-            console.error("WOMPI_INTEGRITY_SECRET is not defined");
+            console.error("[Wompi] ERROR: WOMPI_INTEGRITY_SECRET no definida en .env.local");
             return NextResponse.json({ error: 'Configuración incompleta' }, { status: 500 });
         }
 
-        // Aseguramos que amountInCents sea un número
-        const amount = Number(amountInCents);
-
         // Formula: SHA256(reference + amountInCents + currency + secret)
-        const chain = `${reference}${amount}${currency}${integritySecret}`;
+        const chain = `${cleanReference}${cleanAmount}${cleanCurrency}${integritySecret}`;
         const signature = crypto.createHash('sha256').update(chain).digest('hex');
 
-        console.log(`[Wompi] Firma generada para Ref: ${reference}, Monto: ${amount}, Moneda: ${currency}`);
+        console.log(`[Wompi Server] Firmando cadena: ${cleanReference}${cleanAmount}${cleanCurrency}***`);
 
         return NextResponse.json({ signature });
     } catch (error) {
