@@ -151,17 +151,21 @@ export default function CheckoutPage() {
         }]).select().single();
 
         if (error) {
-            console.error("Error creating order:", error);
+            console.error("Error creating order:", JSON.stringify(error, null, 2));
+            console.error("Error Message:", error.message);
+            console.error("Error Details:", error.details);
+            console.error("Error Hint:", error.hint);
+            console.error("Error Code:", error.code);
             sileo.error({
                 title: "Error de pedido",
-                description: "Hubo un error al procesar tu pedido. Intenta nuevamente."
+                description: `Hubo un error (${error.code}): ${error.message || "Intenta nuevamente."}`
             });
             setIsProcessing(false);
             return;
         }
 
-        // 3. Prepare Wompi Data
-        const amountInCents = total * 100;
+        // 3. Prepare Wompi Data (EXACT INTEGERS ONLY)
+        const amountInCents = Math.floor(total * 100);
         const reference = order.id;
         const currency = 'COP';
 
@@ -176,29 +180,89 @@ export default function CheckoutPage() {
 
             if (!signature) throw new Error("Could not generate signature");
 
-            // 5. Redirect to Wompi Checkout
-            const publicKey = process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY;
-            const redirectUrl = `${window.location.origin}/order-confirmation/${order.id}`;
+            const publicKey = (process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY || '').trim();
+            if (!publicKey || publicKey.length < 10) {
+                throw new Error("Llave pública de Wompi inválida o ausente en .env.local");
+            }
 
-            const wompiUrl = new URL('https://checkout.wompi.co/p/');
-            wompiUrl.searchParams.append('public-key', publicKey || '');
-            wompiUrl.searchParams.append('currency', currency);
-            wompiUrl.searchParams.append('amount-in-cents', amountInCents.toString());
-            wompiUrl.searchParams.append('reference', reference);
-            wompiUrl.searchParams.append('signature:integrity', signature);
-            wompiUrl.searchParams.append('redirect-url', redirectUrl);
+            console.log("Iniciando con Public Key:", publicKey);
 
-            // Optional: Pre-fill customer data
-            wompiUrl.searchParams.append('customer-data:email', formData.email);
-            wompiUrl.searchParams.append('customer-data:full-name', formData.name);
-            wompiUrl.searchParams.append('customer-data:phone-number', formData.phone.replace(/\D/g, ''));
-            wompiUrl.searchParams.append('shipping-address:address-line-1', `${formData.address}, ${formData.neighborhood}`);
-            wompiUrl.searchParams.append('shipping-address:city', formData.city);
-            wompiUrl.searchParams.append('shipping-address:phone-number', formData.phone.replace(/\D/g, ''));
-            wompiUrl.searchParams.append('shipping-address:region', formData.department);
+            // 5. Open Wompi Widget (Modal) - Improved Reliability
+            const scriptId = 'wompi-widget-script';
+            const openWidget = () => {
+                console.log("Intentando abrir Widget de Wompi...");
+                try {
+                    // @ts-ignore
+                    if (typeof window.WidgetCheckout === 'undefined') {
+                        console.warn("Widget aún no cargado, re-intentando...");
+                        setTimeout(openWidget, 1000);
+                        return;
+                    }
 
-            // Redirect to Wompi
-            window.location.href = wompiUrl.toString();
+                    // Usar llave de variable de entorno o fallback del dashboard
+                    const checkoutKey = publicKey || "pub_test_ouThMFD7jJjB5fyKV6NaJU1i0GWUEWa0";
+
+                    // @ts-ignore
+                    const checkout = new window.WidgetCheckout({
+                        currency: 'COP',
+                        amountInCents: amountInCents,
+                        reference: reference,
+                        publicKey: checkoutKey,
+                        signature: signature,
+                        redirectUrl: `${window.location.origin}/order-confirmation/${reference}`,
+                        customerData: {
+                            email: formData.email,
+                            fullName: formData.name,
+                            phoneNumber: formData.phone
+                        },
+                        shippingAddress: {
+                            addressLine1: `${formData.address}${formData.apartment ? ' - ' + formData.apartment : ''}`,
+                            city: formData.city,
+                            phoneNumber: formData.phone,
+                            region: formData.department,
+                            country: 'CO'
+                        }
+                    });
+
+                    checkout.open((result: any) => {
+                        console.log('Transaction Result:', result);
+                        const transaction = result.transaction;
+                        if (transaction?.status === 'APPROVED') {
+                            clearCart();
+                            window.location.href = `/order-confirmation/${reference}`;
+                        }
+                    });
+
+                    setIsProcessing(false);
+                    console.log("Widget abierto correctamente");
+                } catch (err) {
+                    console.error("Widget initialization error:", err);
+                    setIsProcessing(false);
+                    throw new Error("No se pudo inicializar la pasarela");
+                }
+            };
+
+            if (!document.getElementById(scriptId)) {
+                console.log("Cargando script de Wompi (SANDBOX)...");
+                const script = document.createElement('script');
+                script.id = scriptId;
+                // URL para pruebas (Sandbox)
+                script.src = 'https://checkout.wompi.co/widget.js';
+                // Nota: Wompi a veces usa la misma URL pero detecta la llave. 
+                // Sin embargo, si falla con 403, es porque la cuenta no está activa para producción.
+                script.async = true;
+                script.onload = () => {
+                    console.log("Script de Wompi cargado, inicializando...");
+                    setTimeout(openWidget, 500);
+                };
+                script.onerror = () => {
+                    setIsProcessing(false);
+                    sileo.error({ title: "Error", description: "No se pudo cargar el script de Wompi" });
+                };
+                document.body.appendChild(script);
+            } else {
+                openWidget();
+            }
 
         } catch (err) {
             console.error("Payment setup error:", err);

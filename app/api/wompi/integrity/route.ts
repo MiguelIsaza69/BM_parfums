@@ -6,7 +6,7 @@ export async function POST(request: Request) {
         const { reference, amountInCents, currency } = await request.json();
 
         // Wompi Integrity Secret (from Dashboard)
-        const integritySecret = process.env.WOMPI_INTEGRITY_SECRET;
+        const integritySecret = (process.env.WOMPI_INTEGRITY_SECRET || '').trim();
 
         if (!integritySecret) {
             console.error("WOMPI_INTEGRITY_SECRET is not defined");
