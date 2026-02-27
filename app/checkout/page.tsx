@@ -236,13 +236,15 @@ export default function CheckoutPage() {
                         customer_email: formData.email,
                         customer_data: {
                             full_name: formData.name,
-                            phone_number: `57${cleanPhone}`
+                            phone_number: `57${cleanPhone}`,
+                            legal_id: "1026149200", // Dato de prueba como en tu captura
+                            legal_id_type: "CC"     // Requerido para transferencias directas
                         },
                         payment_method: {
                             type: "BANCOLOMBIA_TRANSFER",
                             user_type: "PERSON",
                             payment_description: `Compra BM Parfums - Ref: ${reference}`,
-                            sandbox_status: "APPROVED" // Para que en Sandbox se apruebe automáticamente
+                            // sandbox_status: "APPROVED" <--- Lo quito para que Wompi nos mande a la URL del banco
                         },
                         redirect_url: `${window.location.origin}/order-confirmation/${reference}`,
                         reference: reference,
