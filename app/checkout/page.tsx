@@ -27,6 +27,9 @@ export default function CheckoutPage() {
 
     const [userAddresses, setUserAddresses] = useState<any[]>([]);
     const [selectedAddressId, setSelectedAddressId] = useState<string>("new");
+    const [acceptanceData, setAcceptanceData] = useState<{ token: string; permalink: string } | null>(null);
+    const [termsAccepted, setTermsAccepted] = useState(false);
+    const [paymentMethodSelection, setPaymentMethodSelection] = useState<"widget" | "bancolombia">("widget");
 
     // Derived state for cities based on selected department in form
     const availableCities = formData.department ? (colombiaData as any)[formData.department] || [] : [];
@@ -69,6 +72,24 @@ export default function CheckoutPage() {
             }
         };
         loadUserData();
+
+        // 3. Fetch Wompi Merchant Data (Acceptance Token)
+        const fetchWompiMerchant = async () => {
+            try {
+                const publicKey = (process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY || '').trim();
+                const response = await fetch(`https://sandbox.wompi.co/v1/merchants/${publicKey}`);
+                const { data } = await response.json();
+                if (data && data.presigned_acceptance) {
+                    setAcceptanceData({
+                        token: data.presigned_acceptance.acceptance_token,
+                        permalink: data.presigned_acceptance.permalink
+                    });
+                }
+            } catch (error) {
+                console.error("Error fetching Wompi merchant data:", error);
+            }
+        };
+        fetchWompiMerchant();
     }, []);
 
     const fillAddressForm = (addr: any) => {
@@ -138,6 +159,15 @@ export default function CheckoutPage() {
             return;
         }
 
+        if (!termsAccepted) {
+            sileo.error({
+                title: "Aceptación necesaria",
+                description: "Debes aceptar los términos y condiciones para continuar."
+            });
+            setIsProcessing(false);
+            return;
+        }
+
         // 1. Get User
         const { data: { user } } = await supabase.auth.getUser();
 
@@ -187,6 +217,46 @@ export default function CheckoutPage() {
                 throw new Error("Llave pública de Wompi inválida o ausente en .env.local");
             }
 
+            // A. Direct API Payment (Bancolombia Transfer) - The "Postman" way
+            if (paymentMethodSelection === "bancolombia") {
+                console.log("[Wompi] Procesando pago directo (API)...");
+                const response = await fetch('https://sandbox.wompi.co/v1/transactions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${publicKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        acceptance_token: acceptanceData?.token,
+                        amount_in_cents: amountInCents,
+                        currency: 'COP',
+                        customer_email: formData.email,
+                        payment_method: {
+                            type: "BANCOLOMBIA_TRANSFER",
+                            user_type: "PERSON",
+                            payment_description: `Compra BM Parfums - Ref: ${reference}`,
+                            sandbox_status: "APPROVED"
+                        },
+                        reference: reference,
+                        signature: signature
+                    })
+                });
+
+                const { data, error: apiError } = await response.json();
+                if (apiError) throw new Error(apiError.reason || "Error en la pasarela");
+
+                if (data?.payment_method?.async_payment_url) {
+                    window.location.href = data.payment_method.async_payment_url;
+                    return;
+                } else if (data?.status === 'APPROVED') {
+                    clearCart();
+                    window.location.href = `/order-confirmation/${reference}`;
+                    return;
+                }
+                throw new Error("Respuesta inesperada de la pasarela");
+            }
+
+            // B. Standard Widget Flow
             console.log("Iniciando con Public Key:", publicKey);
 
             // 5. Open Wompi Widget (Modal) - Improved Reliability
@@ -218,6 +288,7 @@ export default function CheckoutPage() {
                         reference: reference,
                         publicKey: checkoutKey,
                         signature: signature,
+                        acceptanceToken: acceptanceData?.token,
                         redirectUrl: `${window.location.origin}/order-confirmation/${reference}`,
                         customerData: {
                             email: formData.email,
@@ -464,8 +535,39 @@ export default function CheckoutPage() {
                                     <CreditCard size={16} /> Pasarela de Pago
                                 </h3>
                                 <p className="text-xs text-neutral-500 mb-4">
-                                    Serás redirigido a una pasarela segura para completar tu pago. Aceptamos tarjetas, PSE y efectivo.
+                                    Selecciona tu método de pago preferido.
                                 </p>
+
+                                <div className="space-y-3 mb-6">
+                                    <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-all ${paymentMethodSelection === 'widget' ? 'bg-gold/10 border-gold/50' : 'bg-black/40 border-white/5 hover:border-white/20'}`}>
+                                        <input
+                                            type="radio"
+                                            name="paymentType"
+                                            checked={paymentMethodSelection === 'widget'}
+                                            onChange={() => setPaymentMethodSelection('widget')}
+                                            className="accent-gold"
+                                        />
+                                        <div>
+                                            <p className="text-sm font-medium">Pasarela Wompi (Tarjetas, PSE, Efectivo)</p>
+                                            <p className="text-[10px] text-neutral-500 font-mono">RECOMENDADO</p>
+                                        </div>
+                                    </label>
+
+                                    <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-all ${paymentMethodSelection === 'bancolombia' ? 'bg-gold/10 border-gold/50' : 'bg-black/40 border-white/5 hover:border-white/20'}`}>
+                                        <input
+                                            type="radio"
+                                            name="paymentType"
+                                            checked={paymentMethodSelection === 'bancolombia'}
+                                            onChange={() => setPaymentMethodSelection('bancolombia')}
+                                            className="accent-gold"
+                                        />
+                                        <div>
+                                            <p className="text-sm font-medium">Bancolombia Transfer (Directo)</p>
+                                            <p className="text-[10px] text-neutral-500 font-mono">MÉTODO TUTORIAL</p>
+                                        </div>
+                                    </label>
+                                </div>
+
                                 <div className="flex gap-4 opacity-50">
                                     {/* Placeholders for payment icons */}
                                     <div className="w-10 h-6 bg-white/20 rounded" />
@@ -473,6 +575,21 @@ export default function CheckoutPage() {
                                     <div className="w-10 h-6 bg-white/20 rounded" />
                                 </div>
                             </div>
+
+                            {acceptanceData && (
+                                <div className="mt-4 flex items-start gap-3 bg-neutral-900/50 p-4 rounded-lg border border-white/10">
+                                    <input
+                                        type="checkbox"
+                                        id="terms"
+                                        checked={termsAccepted}
+                                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                                        className="mt-1 accent-gold h-4 w-4 rounded border-white/20 bg-black cursor-pointer"
+                                    />
+                                    <label htmlFor="terms" className="text-[10px] md:text-xs text-neutral-400 leading-relaxed cursor-pointer">
+                                        Acepto los <a href={acceptanceData.permalink} target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">términos y condiciones</a> de uso para usuarios finales de Wompi.
+                                    </label>
+                                </div>
+                            )}
 
                             <button
                                 type="submit"
