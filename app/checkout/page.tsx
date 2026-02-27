@@ -461,6 +461,35 @@ export default function CheckoutPage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-mono uppercase text-neutral-400">Tipo de Documento</label>
+                                    <select
+                                        name="legalIdType"
+                                        value={formData.legalIdType}
+                                        onChange={handleInputChange}
+                                        className="bg-transparent border-b border-white/20 py-2 focus:border-gold outline-none transition-colors"
+                                    >
+                                        <option value="CC" className="bg-black">Cédula de Ciudadanía</option>
+                                        <option value="CE" className="bg-black">Cédula de Extranjería</option>
+                                        <option value="NIT" className="bg-black">NIT</option>
+                                        <option value="PP" className="bg-black">Pasaporte</option>
+                                    </select>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-mono uppercase text-neutral-400">Número de Documento</label>
+                                    <input
+                                        type="text"
+                                        name="legalId"
+                                        value={formData.legalId}
+                                        onChange={handleInputChange}
+                                        required={paymentMethodSelection === 'bancolombia'}
+                                        placeholder="12345678"
+                                        className="bg-transparent border-b border-white/20 py-2 focus:border-gold outline-none transition-colors placeholder:text-neutral-700"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="flex flex-col gap-2">
                                     <label className="text-xs font-mono uppercase text-neutral-400">Nombre Completo</label>
                                     <input
                                         type="text"
