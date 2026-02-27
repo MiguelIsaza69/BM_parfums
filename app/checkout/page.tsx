@@ -269,30 +269,40 @@ export default function CheckoutPage() {
                     throw new Error(`Error de Wompi: ${errorMsg}`);
                 }
 
-                // Extraer la URL de donde sea que Wompi la mande
+                // Extraer la URL de donde sea que Wompi la mande (POST response o reintento)
                 const data = result.data;
-                const paymentUrl =
-                    data?.payment_method?.async_payment_url ||
-                    data?.extra?.async_payment_url ||
-                    data?.payment_method?.extra?.async_payment_url;
+
+                const getUrlFromData = (obj: any) => {
+                    if (!obj) return null;
+                    // Caso: es un array (como en tu consulta por referencia)
+                    const target = Array.isArray(obj) ? obj[0] : obj;
+                    return target?.payment_method?.extra?.async_payment_url ||
+                        target?.payment_method?.async_payment_url ||
+                        target?.extra?.async_payment_url;
+                };
+
+                let paymentUrl = getUrlFromData(data);
 
                 if (paymentUrl) {
                     clearCart();
                     window.location.href = paymentUrl;
                     return;
                 } else {
-                    // Si no llega la URL en el POST, intentamos un GET rápido como hiciste en Postman
-                    console.log("[Wompi] URL no en POST, re-intentando consulta...");
-                    await new Promise(r => setTimeout(r, 1500)); // Esperar un momento
+                    // Reintento automático como hiciste en Postman
+                    console.log("[Wompi] URL no en POST, re-intentando consulta GET...");
+                    await new Promise(r => setTimeout(r, 2000)); // Esperar 2 segundos
+
                     const checkRes = await fetch(`https://sandbox.wompi.co/v1/transactions/${data.id}`, {
                         headers: { 'Authorization': `Bearer ${publicKey}` }
                     });
                     const checkData = await checkRes.json();
-                    const retryUrl = checkData.data?.payment_method?.extra?.async_payment_url || checkData.data?.payment_method?.async_payment_url;
+                    console.log("[Wompi] Retry Response:", checkData);
 
-                    if (retryUrl) {
+                    paymentUrl = getUrlFromData(checkData.data);
+
+                    if (paymentUrl) {
                         clearCart();
-                        window.location.href = retryUrl;
+                        window.location.href = paymentUrl;
                         return;
                     }
                 }
