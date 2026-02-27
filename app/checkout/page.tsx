@@ -269,51 +269,55 @@ export default function CheckoutPage() {
                     throw new Error(`Error de Wompi: ${errorMsg}`);
                 }
 
-                // Extraer la URL de donde sea que Wompi la mande (POST response o reintento)
-                const data = result.data;
-
+                // Función para buscar la URL en el objeto
                 const getUrlFromData = (obj: any) => {
                     if (!obj) return null;
-                    // Caso: es un array (como en tu consulta por referencia)
                     const target = Array.isArray(obj) ? obj[0] : obj;
                     return target?.payment_method?.extra?.async_payment_url ||
                         target?.payment_method?.async_payment_url ||
                         target?.extra?.async_payment_url;
                 };
 
-                let paymentUrl = getUrlFromData(data);
+                let paymentUrl = getUrlFromData(result.data);
 
-                if (paymentUrl) {
-                    clearCart();
-                    window.location.href = paymentUrl;
-                    return;
-                } else {
-                    // Reintento automático como hiciste en Postman
-                    console.log("[Wompi] URL no en POST, re-intentando consulta GET...");
-                    await new Promise(r => setTimeout(r, 2000)); // Esperar 2 segundos
+                // Si no está, reintentamos hasta 3 veces
+                if (!paymentUrl) {
+                    console.log("[Wompi] URL no encontrada en el primer intento. Iniciando reintentos...");
 
-                    const checkRes = await fetch(`https://sandbox.wompi.co/v1/transactions/${data.id}`, {
-                        headers: { 'Authorization': `Bearer ${publicKey}` }
-                    });
-                    const checkData = await checkRes.json();
-                    console.log("[Wompi] Retry Response:", checkData);
+                    for (let i = 0; i < 3; i++) {
+                        console.log(`[Wompi] Reintento ${i + 1}/3...`);
+                        await new Promise(r => setTimeout(r, 2500)); // Esperar 2.5 seg entre intentos
 
-                    paymentUrl = getUrlFromData(checkData.data);
+                        try {
+                            // Consultar por ID de transacción
+                            const checkRes = await fetch(`https://sandbox.wompi.co/v1/transactions/${result.data.id}`, {
+                                headers: { 'Authorization': `Bearer ${publicKey}` }
+                            });
+                            const checkData = await checkRes.json();
+                            console.log(`[Wompi] Respuesta reintento ${i + 1}:`, checkData);
 
-                    if (paymentUrl) {
-                        clearCart();
-                        window.location.href = paymentUrl;
-                        return;
+                            paymentUrl = getUrlFromData(checkData.data);
+                            if (paymentUrl) break;
+                        } catch (e) {
+                            console.error("[Wompi] Error en reintento:", e);
+                        }
                     }
                 }
 
-                if (data?.status === 'APPROVED') {
+                if (paymentUrl) {
+                    console.log("[Wompi] URL encontrada! Redirigiendo...");
+                    clearCart();
+                    window.location.href = paymentUrl;
+                    return;
+                }
+
+                if (result.data?.status === 'APPROVED') {
                     clearCart();
                     window.location.href = `/order-confirmation/${reference}`;
                     return;
                 }
 
-                throw new Error("No se pudo obtener el enlace de pago de Bancolombia. Por favor intenta con el método Recomendado.");
+                throw new Error("Wompi no generó el link de Bancolombia a tiempo. Por favor intenta con el método Recomendado (Widget).");
             }
 
             // B. Standard Widget Flow
