@@ -22,7 +22,9 @@ export default function CheckoutPage() {
         department: "",
         neighborhood: "",
         apartment: "",
-        details: ""
+        details: "",
+        legalId: "",
+        legalIdType: "CC"
     });
 
     const [userAddresses, setUserAddresses] = useState<any[]>([]);
@@ -50,7 +52,9 @@ export default function CheckoutPage() {
                     department: "",
                     neighborhood: "",
                     apartment: "",
-                    details: ""
+                    details: "",
+                    legalId: "", // Initialize legalId
+                    legalIdType: "CC" // Initialize legalIdType
                 };
 
                 setFormData(prev => ({ ...prev, name: baseData.name, email: baseData.email, phone: baseData.phone }));
@@ -149,6 +153,11 @@ export default function CheckoutPage() {
         if (!formData.city) missingFields.push("Ciudad");
         if (!formData.neighborhood) missingFields.push("Barrio");
         if (!formData.address) missingFields.push("Dirección");
+        if (paymentMethodSelection === "bancolombia") {
+            if (!formData.legalId) missingFields.push("Número de Identificación");
+            if (!formData.legalIdType) missingFields.push("Tipo de Identificación");
+        }
+
 
         if (missingFields.length > 0) {
             sileo.error({
@@ -237,8 +246,8 @@ export default function CheckoutPage() {
                         customer_data: {
                             full_name: formData.name,
                             phone_number: `57${cleanPhone}`,
-                            legal_id: "1026149200", // Dato de prueba como en tu captura
-                            legal_id_type: "CC"     // Requerido para transferencias directas
+                            legal_id: formData.legalId,
+                            legal_id_type: formData.legalIdType
                         },
                         payment_method: {
                             type: "BANCOLOMBIA_TRANSFER",
@@ -253,35 +262,48 @@ export default function CheckoutPage() {
                 });
 
                 const result = await response.json();
-                console.log("[Wompi] Full Response:", JSON.stringify(result, null, 2));
+                console.log("[Wompi] API Response:", result);
 
                 if (result.error) {
                     const errorMsg = typeof result.error === 'string' ? result.error : (result.error.reason || JSON.stringify(result.error));
-                    throw new Error(`Wompi Error: ${errorMsg}`);
+                    throw new Error(`Error de Wompi: ${errorMsg}`);
                 }
 
+                // Extraer la URL de donde sea que Wompi la mande
                 const data = result.data;
-                if (!data) throw new Error("No se recibió información de la transacción");
-
-                // Check for payment URL (Bancolombia, PSE, etc)
-                const paymentUrl = data.payment_method?.async_payment_url || data.extra?.async_payment_url;
+                const paymentUrl =
+                    data?.payment_method?.async_payment_url ||
+                    data?.extra?.async_payment_url ||
+                    data?.payment_method?.extra?.async_payment_url;
 
                 if (paymentUrl) {
-                    console.log("[Wompi] Redirigiendo a:", paymentUrl);
+                    clearCart();
                     window.location.href = paymentUrl;
                     return;
-                } else if (data.status === 'APPROVED') {
+                } else {
+                    // Si no llega la URL en el POST, intentamos un GET rápido como hiciste en Postman
+                    console.log("[Wompi] URL no en POST, re-intentando consulta...");
+                    await new Promise(r => setTimeout(r, 1500)); // Esperar un momento
+                    const checkRes = await fetch(`https://sandbox.wompi.co/v1/transactions/${data.id}`, {
+                        headers: { 'Authorization': `Bearer ${publicKey}` }
+                    });
+                    const checkData = await checkRes.json();
+                    const retryUrl = checkData.data?.payment_method?.extra?.async_payment_url || checkData.data?.payment_method?.async_payment_url;
+
+                    if (retryUrl) {
+                        clearCart();
+                        window.location.href = retryUrl;
+                        return;
+                    }
+                }
+
+                if (data?.status === 'APPROVED') {
                     clearCart();
                     window.location.href = `/order-confirmation/${reference}`;
                     return;
-                } else if (data.status === 'PENDING') {
-                    // Si es pendiente pero no hay URL, podría ser que falta algo o es otro estado
-                    throw new Error(`La transacción quedó pendiente sin URL de redirección. ID: ${data.id}`);
-                } else if (data.status === 'DECLINED') {
-                    throw new Error("La transacción fue declinada por la pasarela.");
                 }
 
-                throw new Error(`Estado inesperado: ${data.status || 'Desconocido'}`);
+                throw new Error("No se pudo obtener el enlace de pago de Bancolombia. Por favor intenta con el método Recomendado.");
             }
 
             // B. Standard Widget Flow
