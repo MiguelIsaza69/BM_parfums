@@ -243,7 +243,7 @@ export default function CheckoutPage() {
                 });
 
                 const result = await response.json();
-                console.log("[Wompi] Raw Result:", result);
+                console.log("[Wompi] Full Response:", JSON.stringify(result, null, 2));
 
                 if (result.error) {
                     const errorMsg = typeof result.error === 'string' ? result.error : (result.error.reason || JSON.stringify(result.error));
