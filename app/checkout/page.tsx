@@ -242,18 +242,36 @@ export default function CheckoutPage() {
                     })
                 });
 
-                const { data, error: apiError } = await response.json();
-                if (apiError) throw new Error(apiError.reason || "Error en la pasarela");
+                const result = await response.json();
+                console.log("[Wompi] Raw Result:", result);
 
-                if (data?.payment_method?.async_payment_url) {
-                    window.location.href = data.payment_method.async_payment_url;
+                if (result.error) {
+                    const errorMsg = typeof result.error === 'string' ? result.error : (result.error.reason || JSON.stringify(result.error));
+                    throw new Error(`Wompi Error: ${errorMsg}`);
+                }
+
+                const data = result.data;
+                if (!data) throw new Error("No se recibió información de la transacción");
+
+                // Check for payment URL (Bancolombia, PSE, etc)
+                const paymentUrl = data.payment_method?.async_payment_url || data.extra?.async_payment_url;
+
+                if (paymentUrl) {
+                    console.log("[Wompi] Redirigiendo a:", paymentUrl);
+                    window.location.href = paymentUrl;
                     return;
-                } else if (data?.status === 'APPROVED') {
+                } else if (data.status === 'APPROVED') {
                     clearCart();
                     window.location.href = `/order-confirmation/${reference}`;
                     return;
+                } else if (data.status === 'PENDING') {
+                    // Si es pendiente pero no hay URL, podría ser que falta algo o es otro estado
+                    throw new Error(`La transacción quedó pendiente sin URL de redirección. ID: ${data.id}`);
+                } else if (data.status === 'DECLINED') {
+                    throw new Error("La transacción fue declinada por la pasarela.");
                 }
-                throw new Error("Respuesta inesperada de la pasarela");
+
+                throw new Error(`Estado inesperado: ${data.status || 'Desconocido'}`);
             }
 
             // B. Standard Widget Flow
