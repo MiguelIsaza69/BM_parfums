@@ -220,6 +220,9 @@ export default function CheckoutPage() {
             // A. Direct API Payment (Bancolombia Transfer) - The "Postman" way
             if (paymentMethodSelection === "bancolombia") {
                 console.log("[Wompi] Procesando pago directo (API)...");
+                // Limpiar teléfono para el API
+                const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^57/, '');
+
                 const response = await fetch('https://sandbox.wompi.co/v1/transactions', {
                     method: 'POST',
                     headers: {
@@ -231,12 +234,17 @@ export default function CheckoutPage() {
                         amount_in_cents: amountInCents,
                         currency: 'COP',
                         customer_email: formData.email,
+                        customer_data: {
+                            full_name: formData.name,
+                            phone_number: `57${cleanPhone}`
+                        },
                         payment_method: {
                             type: "BANCOLOMBIA_TRANSFER",
                             user_type: "PERSON",
                             payment_description: `Compra BM Parfums - Ref: ${reference}`,
-                            sandbox_status: "APPROVED"
+                            sandbox_status: "APPROVED" // Para que en Sandbox se apruebe automáticamente
                         },
+                        redirect_url: `${window.location.origin}/order-confirmation/${reference}`,
                         reference: reference,
                         signature: signature
                     })
