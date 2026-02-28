@@ -38,7 +38,7 @@ export function ProductGrid() {
             </div>
 
             <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-6">
-                {products.map((product, idx) => {
+                {products.filter(p => p.is_active !== false).map((product, idx) => {
                     // Robust Image Extraction
                     let mainImage = "/placeholder.jpg";
                     try {
@@ -62,23 +62,22 @@ export function ProductGrid() {
                             className="group relative border border-white/5 p-6 hover:border-gold/30 transition-all duration-700 bg-neutral-900/10 animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
                             style={{ animationDelay: `${idx * 100}ms` }}
                         >
-                            <div className="relative h-[280px] w-full flex items-center justify-center mb-6 bg-white p-6 overflow-hidden transition-transform duration-700 group-hover:shadow-2xl shadow-black/50">
+                            <div className="relative h-[280px] w-full flex items-center justify-center mb-6 overflow-hidden transition-transform duration-700 group-hover:shadow-2xl shadow-black/50">
                                 <Image
                                     src={mainImage}
                                     alt={product.name}
-                                    width={300}
-                                    height={300}
-                                    className="object-contain max-h-full mix-blend-multiply transition-all duration-1000 ease-out group-hover:scale-110 group-hover:rotate-1"
+                                    fill
+                                    className="object-cover w-full h-full transition-all duration-1000 ease-out xl:group-hover:scale-110 xl:group-hover:rotate-1"
                                 />
 
-                                {/* Subtle Loading Overlay if needed, but here we focus on Hover Overlay */}
-                                <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center text-center p-8 opacity-0 group-hover:opacity-100 transition-all duration-500 ease-in-out backdrop-blur-sm z-10 invisible group-hover:visible translate-y-2 group-hover:translate-y-0">
+                                {/* Hover Overlay - Desktop Only (XL screens > 1280px) */}
+                                <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center text-center p-8 opacity-0 xl:group-hover:opacity-100 transition-all duration-500 ease-in-out backdrop-blur-sm z-10 invisible xl:group-hover:visible translate-y-2 xl:group-hover:translate-y-0 hidden xl:flex">
                                     <div className="w-12 h-px bg-gold/50 mb-6 scale-x-0 group-hover:scale-x-100 transition-transform duration-700 delay-100" />
                                     <p className="text-neutral-400 text-[10px] mb-8 leading-relaxed font-mono uppercase tracking-[3px] line-clamp-4 px-2 italic">{product.description || "Nuestra esencia única, capturada en un frasco de alta perfumería."}</p>
 
                                     <div className="flex flex-col gap-3 w-full max-w-[160px]">
                                         <button
-                                            onClick={() => addItem(product)}
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); addItem(product); }}
                                             className="bg-gold text-black font-bold uppercase py-3 px-4 text-[10px] hover:bg-white hover:tracking-[2px] transition-all duration-300 flex items-center gap-2 justify-center"
                                         >
                                             <ShoppingCart size={12} />
@@ -94,7 +93,7 @@ export function ProductGrid() {
                                 </div>
                             </div>
 
-                            <div className="flex flex-col items-center text-center transition-all duration-500 group-hover:translate-y-[-4px]">
+                            <Link href={`/product/${product.id}`} className="flex flex-col items-center text-center transition-all duration-500 xl:group-hover:translate-y-[-4px]">
                                 <p className="text-[9px] text-gold/60 mb-2 font-mono tracking-[4px] uppercase">{product.brands?.name || "BM PARFUMS"}</p>
                                 <h3 className="text-base font-serif mb-3 truncate w-full tracking-tight text-white/90 group-hover:text-white transition-colors">{product.name}</h3>
                                 <div className="flex items-center gap-2">
@@ -102,6 +101,17 @@ export function ProductGrid() {
                                     <p className="text-gold font-mono text-xs font-bold tracking-widest">${Number(product.price).toLocaleString('es-CO')}</p>
                                     <div className="h-px w-4 bg-white/10 group-hover:w-8 group-hover:bg-gold/30 transition-all duration-500" />
                                 </div>
+                            </Link>
+
+                            {/* Mobile/Tablet Permanent Button (XL screens < 1280px) */}
+                            <div className="mt-6 xl:hidden">
+                                <button
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); addItem(product); }}
+                                    className="w-full bg-gold text-black font-bold uppercase py-4 px-4 text-xs flex items-center gap-3 justify-center active:bg-white transition-colors rounded-sm shadow-lg shadow-gold/10"
+                                >
+                                    <ShoppingCart size={16} />
+                                    AGREGAR AL CARRITO
+                                </button>
                             </div>
                         </div>
                     );

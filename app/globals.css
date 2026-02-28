@@ -17,6 +17,8 @@
   /* Red */
   --color-border: #333333;
   --color-muted: #888888;
+
+  --breakpoint-nav: 1176px;
 }
 
 :root {
@@ -34,20 +36,31 @@ body {
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #111;
+  background: #0a0a0a;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333;
+  background: #444;
+  /* Slightly lighter for better contrast */
+  border-radius: 10px;
+  border: 2px solid #0a0a0a;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background: var(--color-gold);
+}
+
+/* Scrollable containers helper */
+.scroll-top-container {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-gutter: stable;
 }
 
 /* Utilities */

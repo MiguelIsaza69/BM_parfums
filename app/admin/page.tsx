@@ -334,7 +334,8 @@ export default function AdminDashboard() {
         description: "",
         price: "" as string | number,
         volume_ml: "" as string | number,
-        quality: "Inspiración"
+        quality: "Inspiración",
+        is_active: true
     });
     const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false); // New state for form visibility
@@ -377,7 +378,7 @@ export default function AdminDashboard() {
 
     const resetProductForm = () => {
         setProductForm({
-            id: null, name: "", brand_id: "", gender_id: "", category_ids: [""], description: "", price: "", volume_ml: "", quality: "Inspiración"
+            id: null, name: "", brand_id: "", gender_id: "", category_ids: [""], description: "", price: "", volume_ml: "", quality: "Inspiración", is_active: true
         });
         setImagesText("");
         setIsFormOpen(false); // Close form on reset
@@ -427,6 +428,7 @@ export default function AdminDashboard() {
                 price: Number(productForm.price),
                 volume_ml: Number(productForm.volume_ml) || 0,
                 quality: productForm.quality,
+                is_active: productForm.is_active,
                 images: cleanImages
             };
 
@@ -489,7 +491,8 @@ export default function AdminDashboard() {
             description: p.description || "",
             price: p.price,
             volume_ml: p.volume_ml || "",
-            quality: p.quality
+            quality: p.quality,
+            is_active: p.is_active ?? true
         });
         // Handle images (text, array, or JSON string)
         let actualImages: string[] = [];
@@ -581,6 +584,19 @@ export default function AdminDashboard() {
                                     <div className="space-y-4">
                                         <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Descripción</label><textarea value={productForm.description} onChange={e => handleProductFormChange('description', e.target.value)} className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded h-32 resize-none" /></div>
                                         <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Imágenes (Una URL por línea)</label><textarea value={imagesText} onChange={(e) => setImagesText(e.target.value)} className="bg-black border border-white/20 p-3 text-xs text-white focus:border-gold outline-none font-mono rounded resize-y" rows={5} /><p className="text-[10px] text-neutral-600">Sepáralas con Enter.</p></div>
+
+                                        <div className="flex items-center gap-4 bg-black/40 border border-white/5 p-4 rounded-lg">
+                                            <input
+                                                type="checkbox"
+                                                id="is_active_check"
+                                                checked={productForm.is_active}
+                                                onChange={e => handleProductFormChange('is_active', e.target.checked)}
+                                                className="w-5 h-5 accent-gold cursor-pointer"
+                                            />
+                                            <label htmlFor="is_active_check" className="text-sm font-mono text-white cursor-pointer uppercase tracking-widest">
+                                                Producto Visible (Activo)
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex justify-end"><button type="submit" disabled={isSubmittingProduct} className="bg-gold text-black uppercase font-bold text-xs py-3 px-8 hover:bg-white transition-colors disabled:opacity-50 flex items-center gap-2">{isSubmittingProduct ? "Guardando..." : (productForm.id ? "Actualizar" : "Crear")} <Plus size={16} /></button></div>
@@ -608,11 +624,38 @@ export default function AdminDashboard() {
                                 const safeImage = mainImage && mainImage.length > 5 ? mainImage : null;
                                 return (
                                     <div key={p.id} className="group bg-neutral-900/20 border border-white/10 p-4 rounded-lg relative hover:border-gold/50 transition-colors">
-                                        <div className="aspect-square bg-white mb-4 relative rounded-sm flex items-center justify-center overflow-hidden">
-                                            {safeImage ? <img src={safeImage} alt={p.name} className="object-contain w-full h-full mix-blend-multiply group-hover:scale-110 transition-transform duration-500" /> : <div className="text-xs text-neutral-300">Sin imagen</div>}
-                                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => handleEditProduct(p)} className="bg-white text-black p-2 rounded-full hover:bg-gold"><Edit size={14} /></button>
-                                                <button onClick={() => handleDeleteProduct(p.id)} className="bg-black text-white p-2 rounded-full hover:bg-red-600 border border-white/10"><Trash2 size={14} /></button>
+                                        <div className="relative aspect-square mb-4">
+                                            {/* Image with Dimming/Grayscale */}
+                                            <div className={`w-full h-full bg-transparent relative rounded-sm flex items-center justify-center overflow-hidden border border-white/5 transition-all duration-500 ${p.is_active === false ? 'opacity-30 grayscale' : ''}`}>
+                                                {safeImage ? <img src={safeImage} alt={p.name} className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500" /> : <div className="text-xs text-neutral-300">Sin imagen</div>}
+                                                {p.is_active === false && (
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
+                                                        <span className="bg-red-600 text-white text-[10px] font-mono px-3 py-1 rounded-full uppercase tracking-tighter">Inhabilitado</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Action Buttons - Moved outside the grayscale container */}
+                                            <div className={`absolute top-2 right-2 flex flex-col gap-2 z-30 transition-all duration-300 ${p.is_active === false ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0'}`}>
+                                                <button onClick={() => handleEditProduct(p)} className="bg-white text-black p-2 rounded-full hover:bg-gold shadow-xl hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={14} /></button>
+                                                <button
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        const targetStatus = p.is_active === false ? true : false;
+                                                        const { error } = await supabase.from('products').update({ is_active: targetStatus }).eq('id', p.id);
+                                                        if (!error) {
+                                                            setProducts(prev => prev.map(item => item.id === p.id ? { ...item, is_active: targetStatus } : item));
+                                                            addToast(targetStatus ? "Producto Habilitado" : "Producto Inhabilitado", "success");
+                                                        } else {
+                                                            addToast("Error al conectar con la base de datos", "error");
+                                                        }
+                                                    }}
+                                                    className={`${p.is_active === false ? 'bg-red-600' : 'bg-green-600'} text-white p-2 rounded-full hover:scale-110 active:scale-95 transition-all shadow-xl`}
+                                                    title={p.is_active === false ? "HABILITAR" : "INHABILITAR"}
+                                                >
+                                                    <Package size={14} />
+                                                </button>
+                                                <button onClick={() => handleDeleteProduct(p.id)} className="bg-black text-white p-2 rounded-full hover:bg-red-600 border border-white/20 shadow-xl hover:scale-110 active:scale-95 transition-all" title="Eliminar Permanente"><Trash2 size={14} /></button>
                                             </div>
                                         </div>
                                         <div className="text-center">
@@ -630,21 +673,27 @@ export default function AdminDashboard() {
                 return (
                     <div>
                         <h2 className="text-3xl font-serif text-white mb-8 border-b border-white/10 pb-6">Usuarios Registrados ({usersList.length})</h2>
-                        <div className="bg-neutral-900/30 border border-white/10 rounded-lg overflow-hidden backdrop-blur-sm w-full max-w-6xl mx-auto">
-                            <table className="w-full text-left border-collapse">
+                        <div
+                            className="bg-neutral-900/30 border border-white/10 rounded-lg overflow-x-auto backdrop-blur-sm w-full max-w-6xl mx-auto scroll-top-container"
+                            style={{ transform: 'rotateX(180deg)', WebkitTransform: 'rotateX(180deg)' }}
+                        >
+                            <table
+                                className="w-full text-left border-collapse min-w-[900px]"
+                                style={{ transform: 'rotateX(180deg)', WebkitTransform: 'rotateX(180deg)' }}
+                            >
                                 <thead>
                                     <tr className="border-b border-white/10 bg-white/5 text-sm font-mono uppercase text-gold tracking-wider">
-                                        <th className="p-6">Email</th>
-                                        <th className="p-6">Nombre</th>
-                                        <th className="p-6 text-right">Teléfono</th>
+                                        <th className="p-6 whitespace-nowrap">Email</th>
+                                        <th className="p-6 whitespace-nowrap">Nombre</th>
+                                        <th className="p-6 text-right whitespace-nowrap">Teléfono</th>
                                     </tr>
                                 </thead>
                                 <tbody className="text-base font-mono text-neutral-300 divide-y divide-white/5">
                                     {usersList.map((u) => (
                                         <tr key={u.id} className="hover:bg-white/5 transition-colors">
-                                            <td className="p-6 break-all text-white/70">{u.email}</td>
-                                            <td className="p-6 font-bold text-white">{u.full_name || "—"}</td>
-                                            <td className="p-6 text-right">{u.phone || "—"}</td>
+                                            <td className="p-6 whitespace-nowrap text-white/70">{u.email}</td>
+                                            <td className="p-6 whitespace-nowrap font-bold text-white">{u.full_name || "—"}</td>
+                                            <td className="p-6 text-right whitespace-nowrap">{u.phone || "—"}</td>
                                         </tr>
                                     ))}
                                     {usersList.length === 0 && (
@@ -681,8 +730,15 @@ export default function AdminDashboard() {
                             </button>
                         </div>
 
-                        <div className="bg-neutral-900/30 border border-white/10 rounded-lg overflow-x-auto backdrop-blur-sm w-full">
-                            <table className="w-full text-left border-collapse min-w-[1000px]">
+                        {/* Orders List Container */}
+                        <div
+                            className="bg-neutral-900/30 border border-white/10 rounded-lg overflow-x-auto backdrop-blur-sm w-full scroll-top-container"
+                            style={{ transform: 'rotateX(180deg)', WebkitTransform: 'rotateX(180deg)' }}
+                        >
+                            <table
+                                className="w-full text-left border-collapse min-w-[1200px]"
+                                style={{ transform: 'rotateX(180deg)', WebkitTransform: 'rotateX(180deg)' }}
+                            >
                                 <thead>
                                     <tr className="border-b border-white/10 bg-white/5 text-xs font-mono uppercase text-gold tracking-wider">
                                         <th className="p-4">ID</th>
@@ -1011,7 +1067,7 @@ export default function AdminDashboard() {
     return (
         <main className="min-h-screen bg-black text-white pt-32">
             <Header />
-            <div className="px-6 md:px-12 lg:px-24 mb-6"><h1 className="text-4xl md:text-6xl font-serif mb-2">Administración</h1></div>
+            <div className="px-6 md:px-12 lg:px-24 mb-6 text-right lg:text-left"><h1 className="text-4xl md:text-6xl font-serif mb-2">Administración</h1></div>
             <div className="px-6 md:px-12 lg:px-24 grid grid-cols-1 lg:grid-cols-4 gap-8 pb-24">
                 <aside className="border-r border-white/10 pr-8 h-full flex flex-col gap-2">
                     {[

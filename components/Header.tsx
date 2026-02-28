@@ -155,7 +155,7 @@ export function Header() {
                 {/* Right Side Container */}
                 <div className="flex items-center gap-12 pointer-events-auto">
                     {/* Desktop Nav */}
-                    <nav className="hidden md:flex gap-8 items-center">
+                    <nav className="hidden nav:flex gap-8 items-center">
                         {isAdmin && (
                             <Link
                                 href="/admin"
@@ -183,7 +183,7 @@ export function Header() {
                     {/* Actions */}
                     <div className="flex items-center gap-6">
                         <div className="relative group/search">
-                            <div className="hidden md:flex items-center gap-2 border border-white/20 rounded-full px-4 py-2 bg-white/5 transition-all duration-300 focus-within:bg-black/80 focus-within:border-gold w-64">
+                            <div className="hidden nav:flex items-center gap-2 border border-white/20 rounded-full px-4 py-2 bg-white/5 transition-all duration-300 focus-within:bg-black/80 focus-within:border-gold w-64">
                                 <Search className="w-4 h-4 text-neutral-400 group-focus-within/search:text-gold" />
                                 <input
                                     type="text"
@@ -301,7 +301,7 @@ export function Header() {
                         {/* User Auth Trigger */}
                         <button
                             onClick={() => user ? router.push("/dashboard") : setIsAuthOpen(true)}
-                            className="hidden md:flex items-center gap-2 hover:text-gold transition-colors"
+                            className="flex items-center gap-2 hover:text-gold transition-colors"
                         >
                             <User className="w-5 h-5" />
                         </button>
@@ -316,7 +316,7 @@ export function Header() {
 
                         {/* Mobile Menu Toggle */}
                         <button
-                            className="md:hidden"
+                            className="nav:hidden"
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         >
                             <Menu className="w-6 h-6 hover:text-gold transition-colors" />
@@ -324,9 +324,17 @@ export function Header() {
                     </div>
                 </div>
 
-                {/* Mobile Nav Overlay */}
                 {isMobileMenuOpen && (
-                    <div className="absolute top-full left-0 w-full bg-black/95 border-b border-white/10 p-8 flex flex-col gap-6 md:hidden glass-panel pointer-events-auto">
+                    <div className="absolute top-full left-0 w-full bg-black/95 border-b border-white/10 p-8 flex flex-col gap-6 nav:hidden glass-panel pointer-events-auto">
+                        {isAdmin && (
+                            <Link
+                                href="/admin"
+                                className="text-lg font-mono uppercase tracking-widest text-red-500 font-bold hover:text-white transition-all"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                                Panel Admin
+                            </Link>
+                        )}
                         {[
                             { name: "Categorias", path: "/categorias" },
                             { name: "Marcas", path: "/marcas" },

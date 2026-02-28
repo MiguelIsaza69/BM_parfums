@@ -4,11 +4,13 @@ import { useSearchParams } from "next/navigation";
 import { RegisterForm } from "@/components/RegisterForm";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
+import { TermsModal } from "@/components/TermsModal";
 
 function RegistrarseContent() {
     const searchParams = useSearchParams();
     const initialEmail = searchParams.get("email") || "";
+    const [isTermsOpen, setIsTermsOpen] = useState(false);
 
     return (
         <div className="w-full max-w-md bg-neutral-900/40 p-10 border border-white/10 rounded-2xl backdrop-blur-xl shadow-2xl shadow-gold/5">
@@ -19,8 +21,15 @@ function RegistrarseContent() {
 
             <p className="mt-12 text-center text-[9px] text-neutral-600 font-mono uppercase tracking-[2px] leading-relaxed">
                 Al registrarte, aceptas nuestros <br />
-                <span className="text-neutral-400 hover:text-gold cursor-pointer transition-colors underline underline-offset-4">Términos y Condiciones</span>
+                <button
+                    onClick={() => setIsTermsOpen(true)}
+                    className="text-neutral-400 hover:text-gold cursor-pointer transition-colors underline underline-offset-4 bg-transparent border-none"
+                >
+                    Términos y Condiciones
+                </button>
             </p>
+
+            <TermsModal isOpen={isTermsOpen} onClose={() => setIsTermsOpen(false)} />
         </div>
     );
 }

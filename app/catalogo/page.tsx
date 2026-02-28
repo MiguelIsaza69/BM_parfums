@@ -27,6 +27,7 @@ function CatalogContent() {
     const [priceRange, setPriceRange] = useState([0, 1000000]);
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
+    const [showMobileFilters, setShowMobileFilters] = useState(false);
 
     const ITEMS_PER_PAGE = 15;
 
@@ -136,6 +137,9 @@ function CatalogContent() {
         // Price
         result = result.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
 
+        // Soft Delete (is_active)
+        result = result.filter(p => (p as any).is_active !== false);
+
         return result;
     }, [allProducts, selectedGenders, selectedCategories, selectedBrands, priceRange]);
 
@@ -162,106 +166,136 @@ function CatalogContent() {
         <main className="min-h-screen bg-black text-white pt-32">
             <Header />
 
-            <div className="px-6 md:px-12 lg:px-24 mb-12">
+            <div className="px-6 md:px-12 lg:px-24 mb-12 text-right lg:text-left">
                 <h1 className="text-4xl md:text-6xl font-serif mb-4">Catálogo</h1>
-                <p className="text-neutral-400 font-mono text-sm max-w-xl">
+                <p className="text-neutral-400 font-mono text-sm max-w-xl ml-auto lg:ml-0">
                     Explora nuestra colección curada de las fragancias más exclusivas del mundo.
                 </p>
             </div>
 
             <div className="flex flex-col lg:flex-row px-6 md:px-12 lg:px-24 gap-12 pb-24">
-                {/* Sidebar Filters */}
-                <aside className="w-full lg:w-64 shrink-0 flex flex-col gap-8">
+                {/* Mobile Filters Overlay */}
+                <div
+                    className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] transition-opacity duration-300 lg:hidden ${showMobileFilters ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    onClick={() => setShowMobileFilters(false)}
+                />
 
-                    {/* Price Filter */}
-                    <div className="border-b border-white/10 pb-6">
-                        <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
-                            Precio
-                            <ChevronDown size={14} />
-                        </h3>
-                        <input
-                            type="range"
-                            min="0"
-                            max="1000000"
-                            step="5000"
-                            value={priceRange[1]}
-                            onChange={(e) => setPriceRange([0, parseInt(e.target.value)])}
-                            className="w-full accent-gold h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <div className="flex justify-between text-xs font-mono text-neutral-400 mt-2">
-                            <span>$0</span>
-                            <span>${priceRange[1].toLocaleString('es-CO')}</span>
+                {/* Sidebar Filters - Desktop and Mobile Drawer */}
+                <aside className={`
+                    fixed inset-y-0 left-0 w-[85%] max-w-sm bg-black border-r border-white/10 z-[101] p-8 flex flex-col gap-8 transition-transform duration-500 transform lg:relative lg:inset-auto lg:translate-x-0 lg:w-64 lg:bg-transparent lg:border-none lg:z-0 lg:p-0
+                    ${showMobileFilters ? 'translate-x-0' : '-translate-x-full'}
+                `}>
+                    <div className="flex justify-between items-center lg:hidden mb-4">
+                        <h2 className="text-xl font-serif">Filtros</h2>
+                        <button onClick={() => setShowMobileFilters(false)} className="text-gold font-mono text-xs uppercase tracking-widest">Cerrar</button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto lg:overflow-visible pr-2 custom-scrollbar space-y-8">
+                        {/* Price Filter */}
+                        <div className="border-b border-white/10 pb-6">
+                            <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
+                                Precio
+                                <ChevronDown size={14} />
+                            </h3>
+                            <input
+                                type="range"
+                                min="0"
+                                max="1000000"
+                                step="5000"
+                                value={priceRange[1]}
+                                onChange={(e) => setPriceRange([0, parseInt(e.target.value)])}
+                                className="w-full accent-gold h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
+                            />
+                            <div className="flex justify-between text-xs font-mono text-neutral-400 mt-2">
+                                <span>$0</span>
+                                <span>${priceRange[1].toLocaleString('es-CO')}</span>
+                            </div>
+                        </div>
+
+                        {/* Gender Filter */}
+                        <div className="border-b border-white/10 pb-6">
+                            <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
+                                Género <ChevronDown size={14} />
+                            </h3>
+                            <div className="flex flex-col gap-3">
+                                {genders.map(g => (
+                                    <label key={g.id} className="flex items-center gap-3 cursor-pointer group">
+                                        <div
+                                            className={`w-4 h-4 border border-white/30 flex items-center justify-center transition-colors ${selectedGenders.includes(g.name) ? 'bg-gold border-gold text-black' : 'group-hover:border-white'}`}
+                                            onClick={() => toggleGender(g.name)}
+                                        >
+                                            {selectedGenders.includes(g.name) && <Check size={10} strokeWidth={4} />}
+                                        </div>
+                                        <span className="text-xs font-mono text-neutral-300 group-hover:text-white transition-colors uppercase">{g.name}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Categories Filter */}
+                        <div className="border-b border-white/10 pb-6">
+                            <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
+                                Categorías <ChevronDown size={14} />
+                            </h3>
+                            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto hide-scrollbar">
+                                {categories.map(cat => (
+                                    <label key={cat.id} className="flex items-center gap-3 cursor-pointer group">
+                                        <div
+                                            className={`w-3 h-3 border border-white/30 flex items-center justify-center transition-colors ${selectedCategories.includes(cat.id) ? 'bg-gold border-gold' : 'group-hover:border-white'}`}
+                                            onClick={() => toggleCategory(cat.id)}
+                                        />
+                                        <span className={`text-xs font-mono uppercase tracking-wide transition-colors ${selectedCategories.includes(cat.id) ? 'text-gold' : 'text-neutral-400 hover:text-white'}`}>
+                                            {cat.name}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Brands Filter */}
+                        <div className="pb-6">
+                            <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
+                                Marcas <ChevronDown size={14} />
+                            </h3>
+                            <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                                {brands.map(b => (
+                                    <label key={b.id} className="flex items-center gap-3 cursor-pointer group">
+                                        <div
+                                            className={`w-3 h-3 border border-white/30 flex items-center justify-center transition-colors ${selectedBrands.includes(b.name) ? 'bg-gold border-gold' : 'group-hover:border-white'}`}
+                                            onClick={() => toggleBrand(b.name)}
+                                        />
+                                        <span className={`text-xs font-mono uppercase tracking-wide transition-colors ${selectedBrands.includes(b.name) ? 'text-gold' : 'text-neutral-400 hover:text-white'}`}>
+                                            {b.name}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Gender Filter */}
-                    <div className="border-b border-white/10 pb-6">
-                        <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
-                            Género <ChevronDown size={14} />
-                        </h3>
-                        <div className="flex flex-col gap-3">
-                            {genders.map(g => (
-                                <label key={g.id} className="flex items-center gap-3 cursor-pointer group">
-                                    <div
-                                        className={`w-4 h-4 border border-white/30 flex items-center justify-center transition-colors ${selectedGenders.includes(g.name) ? 'bg-gold border-gold text-black' : 'group-hover:border-white'}`}
-                                        onClick={() => toggleGender(g.name)}
-                                    >
-                                        {selectedGenders.includes(g.name) && <Check size={10} strokeWidth={4} />}
-                                    </div>
-                                    <span className="text-xs font-mono text-neutral-300 group-hover:text-white transition-colors uppercase">{g.name}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Categories Filter */}
-                    <div className="border-b border-white/10 pb-6">
-                        <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
-                            Categorías <ChevronDown size={14} />
-                        </h3>
-                        <div className="flex flex-col gap-2 max-h-48 overflow-y-auto hide-scrollbar">
-                            {categories.map(cat => (
-                                <label key={cat.id} className="flex items-center gap-3 cursor-pointer group">
-                                    <div
-                                        className={`w-3 h-3 border border-white/30 flex items-center justify-center transition-colors ${selectedCategories.includes(cat.id) ? 'bg-gold border-gold' : 'group-hover:border-white'}`}
-                                        onClick={() => toggleCategory(cat.id)}
-                                    />
-                                    <span className={`text-xs font-mono uppercase tracking-wide transition-colors ${selectedCategories.includes(cat.id) ? 'text-gold' : 'text-neutral-400 hover:text-white'}`}>
-                                        {cat.name}
-                                    </span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Brands Filter */}
-                    <div className="pb-6">
-                        <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
-                            Marcas <ChevronDown size={14} />
-                        </h3>
-                        <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                            {brands.map(b => (
-                                <label key={b.id} className="flex items-center gap-3 cursor-pointer group">
-                                    <div
-                                        className={`w-3 h-3 border border-white/30 flex items-center justify-center transition-colors ${selectedBrands.includes(b.name) ? 'bg-gold border-gold' : 'group-hover:border-white'}`}
-                                        onClick={() => toggleBrand(b.name)}
-                                    />
-                                    <span className={`text-xs font-mono uppercase tracking-wide transition-colors ${selectedBrands.includes(b.name) ? 'text-gold' : 'text-neutral-400 hover:text-white'}`}>
-                                        {b.name}
-                                    </span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
+                    <button
+                        className="lg:hidden w-full bg-gold text-black font-bold py-4 uppercase text-xs tracking-widest mt-auto shadow-[0_-10px_30px_rgba(0,0,0,0.5)]"
+                        onClick={() => setShowMobileFilters(false)}
+                    >
+                        Ver Resultados
+                    </button>
                 </aside>
 
                 {/* Main Content */}
                 <div className="flex-1">
                     {/* Toolbar */}
                     <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
-                        <span className="text-xs font-mono text-neutral-400">
-                            {filteredProducts.length} productos • Página {currentPage} de {totalPages || 1}
-                        </span>
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setShowMobileFilters(true)}
+                                className="lg:hidden flex items-center gap-2 px-4 py-1.5 border border-white/20 rounded text-xs font-mono uppercase tracking-widest hover:bg-white/10 transition-colors"
+                            >
+                                <Filter size={14} /> Filtros
+                            </button>
+                            <span className="hidden sm:inline text-xs font-mono text-neutral-400">
+                                {filteredProducts.length} productos • Página {currentPage} de {totalPages || 1}
+                            </span>
+                        </div>
 
                         <div className="flex items-center gap-2 cursor-pointer hover:text-gold transition-colors">
                             <span className="text-xs font-mono uppercase">Más vendidos</span>
@@ -278,19 +312,18 @@ function CatalogContent() {
                         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
                             {paginatedProducts.map((product) => (
                                 <div key={product.id} className="group relative border border-white/10 p-6 hover:border-gold/50 transition-colors bg-neutral-900/20">
-                                    <div className="relative h-[250px] w-full flex items-center justify-center mb-6 bg-white p-4 overflow-hidden">
+                                    <div className="relative h-[250px] w-full flex items-center justify-center mb-6 overflow-hidden">
                                         <Image
                                             src={product.mainImage}
                                             alt={product.name}
-                                            width={300}
-                                            height={300}
-                                            className="object-contain max-h-full mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
+                                            fill
+                                            className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
                                         />
 
-                                        {/* Hover Overlay */}
-                                        <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center text-center p-6 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-4 group-hover:translate-y-0 z-10">
+                                        {/* Hover Overlay - Desktop Only */}
+                                        <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center text-center p-6 opacity-0 xl:group-hover:opacity-100 transition-all duration-300 translate-y-4 xl:group-hover:translate-y-0 z-10 hidden xl:flex">
                                             <button
-                                                onClick={() => addItem(product)}
+                                                onClick={(e) => { e.stopPropagation(); addItem(product); }}
                                                 className="bg-gold text-black font-bold uppercase py-2 px-6 min-w-[140px] text-xs hover:bg-white transition-colors flex items-center gap-2 mb-2 w-auto justify-center"
                                             >
                                                 <ShoppingCart size={14} />
@@ -305,10 +338,24 @@ function CatalogContent() {
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col items-center text-center">
+                                    <div
+                                        className="flex flex-col items-center text-center cursor-pointer"
+                                        onClick={() => router.push(`/product/${product.id}`)}
+                                    >
                                         <p className="text-[10px] text-muted mb-1 font-mono tracking-widest uppercase">{product.brandName}</p>
                                         <h3 className="text-lg font-serif mb-2 line-clamp-1">{product.name}</h3>
                                         <p className="text-gold font-mono text-sm">${product.price.toLocaleString('es-CO')}</p>
+                                    </div>
+
+                                    {/* Mobile/Tablet Permanent Button */}
+                                    <div className="mt-4 xl:hidden">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); addItem(product); }}
+                                            className="w-full bg-gold text-black font-bold uppercase py-3 px-4 text-xs flex items-center gap-2 justify-center active:bg-white transition-colors rounded-sm"
+                                        >
+                                            <ShoppingCart size={16} />
+                                            AGREGAR
+                                        </button>
                                     </div>
                                 </div>
                             ))}

@@ -21,9 +21,9 @@ export default function BrandsPage() {
     return (
         <main className="min-h-screen bg-black text-white pt-32">
             <Header />
-            <div className="px-6 md:px-12 lg:px-24 mb-12">
+            <div className="px-6 md:px-12 lg:px-24 mb-12 text-right lg:text-left">
                 <h1 className="text-4xl md:text-6xl font-serif mb-4">Marcas</h1>
-                <p className="text-neutral-400 font-mono text-sm max-w-xl">
+                <p className="text-neutral-400 font-mono text-sm max-w-xl ml-auto lg:ml-0">
                     Descubre nuestra curada selección de casas perfumeras.
                 </p>
             </div>

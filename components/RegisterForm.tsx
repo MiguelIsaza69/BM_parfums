@@ -17,9 +17,17 @@ export function RegisterForm({ onSuccess, initialEmail = "", setView }: Register
     const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleRegister = async () => {
+        if (!acceptedTerms) {
+            sileo.error({
+                title: "Términos y Condiciones",
+                description: "Debes aceptar los términos y condiciones para continuar."
+            });
+            return;
+        }
         if (password !== confirmPassword) {
             sileo.error({
                 title: "Error",
@@ -79,10 +87,25 @@ export function RegisterForm({ onSuccess, initialEmail = "", setView }: Register
             <Input label="Contraseña" type="password" placeholder="••••••••" value={password} onChange={setPassword} />
             <Input label="Confirmar Contraseña" type="password" placeholder="••••••••" value={confirmPassword} onChange={setConfirmPassword} />
 
+            <div className="flex items-start gap-3 px-1 mt-2">
+                <div className="pt-0.5">
+                    <input
+                        type="checkbox"
+                        id="terms"
+                        checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        className="w-4 h-4 rounded border-white/10 bg-neutral-900 accent-gold cursor-pointer"
+                    />
+                </div>
+                <label htmlFor="terms" className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest cursor-pointer leading-tight">
+                    Acepto los términos y condiciones de BM Parfums
+                </label>
+            </div>
+
             <button
                 onClick={handleRegister}
                 disabled={loading}
-                className="bg-gold text-black font-bold uppercase py-4 hover:bg-white transition-colors font-mono tracking-widest mt-4 disabled:opacity-50"
+                className="bg-gold text-black font-bold uppercase py-4 hover:bg-white transition-colors font-mono tracking-widest mt-2 disabled:opacity-50"
             >
                 {loading ? "Registrando..." : "Registrarse"}
             </button>

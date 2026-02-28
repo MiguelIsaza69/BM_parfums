@@ -5,8 +5,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
+import { TermsModal } from "./TermsModal";
+
 export function Footer() {
     const [email, setEmail] = useState("");
+    const [isTermsOpen, setIsTermsOpen] = useState(false);
     const router = useRouter();
 
     const handleJoin = (e: React.FormEvent) => {
@@ -47,6 +50,14 @@ export function Footer() {
                     <ul>
                         <li className="mb-6 text-gold uppercase tracking-[3px] text-[10px] font-bold">Soporte</li>
                         <li className="mb-3 text-neutral-400"><a href="/contacto" className="hover:text-white transition-colors">Contacto</a></li>
+                        <li className="mb-3 text-neutral-400">
+                            <button
+                                onClick={() => setIsTermsOpen(true)}
+                                className="hover:text-white transition-colors text-left"
+                            >
+                                Términos y Condiciones
+                            </button>
+                        </li>
                     </ul>
                 </div>
 
@@ -82,6 +93,8 @@ export function Footer() {
             <div className="p-8 text-center text-[9px] text-neutral-700 font-mono uppercase tracking-[4px]">
                 &copy; 2026 BM PARFUMS. TODOS LOS DERECHOS RESERVADOS.
             </div>
+
+            <TermsModal isOpen={isTermsOpen} onClose={() => setIsTermsOpen(false)} />
         </footer>
     );
 }
