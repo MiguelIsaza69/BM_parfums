@@ -124,14 +124,12 @@ export default function ProductDetailsPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
                     {/* Image Section */}
-                    <div className="relative aspect-square w-full bg-white flex items-center justify-center p-8 border border-white/10 group overflow-hidden">
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-stops))] from-neutral-100 via-white to-neutral-200 opacity-50" />
+                    <div className="relative aspect-square w-full flex items-center justify-center border border-white/10 group overflow-hidden bg-neutral-900/40 p-8">
                         <Image
                             src={mainImage}
                             alt={product.name}
-                            width={600}
-                            height={600}
-                            className="object-contain max-h-full max-w-full mix-blend-multiply z-10 transition-transform duration-700 hover:scale-105"
+                            fill
+                            className="object-contain w-full h-full z-10 transition-transform duration-700 hover:scale-110"
                             priority
                         />
                     </div>

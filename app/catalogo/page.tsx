@@ -312,12 +312,12 @@ function CatalogContent() {
                         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
                             {paginatedProducts.map((product) => (
                                 <div key={product.id} className="group relative border border-white/10 p-6 hover:border-gold/50 transition-colors bg-neutral-900/20">
-                                    <div className="relative h-[250px] w-full flex items-center justify-center mb-6 overflow-hidden">
+                                    <div className="relative h-[250px] w-full flex items-center justify-center mb-6 overflow-hidden p-4">
                                         <Image
                                             src={product.mainImage}
                                             alt={product.name}
                                             fill
-                                            className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
+                                            className="object-contain w-full h-full group-hover:scale-110 transition-transform duration-500"
                                         />
 
                                         {/* Hover Overlay - Desktop Only */}

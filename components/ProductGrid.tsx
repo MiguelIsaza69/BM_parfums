@@ -62,12 +62,12 @@ export function ProductGrid() {
                             className="group relative border border-white/5 p-6 hover:border-gold/30 transition-all duration-700 bg-neutral-900/10 animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
                             style={{ animationDelay: `${idx * 100}ms` }}
                         >
-                            <div className="relative h-[280px] w-full flex items-center justify-center mb-6 overflow-hidden transition-transform duration-700 group-hover:shadow-2xl shadow-black/50">
+                            <div className="relative h-[280px] w-full flex items-center justify-center mb-6 overflow-hidden transition-transform duration-700 group-hover:shadow-2xl shadow-black/50 p-4">
                                 <Image
                                     src={mainImage}
                                     alt={product.name}
                                     fill
-                                    className="object-cover w-full h-full transition-all duration-1000 ease-out xl:group-hover:scale-110 xl:group-hover:rotate-1"
+                                    className="object-contain w-full h-full transition-all duration-1000 ease-out xl:group-hover:scale-110 xl:group-hover:rotate-1"
                                 />
 
                                 {/* Hover Overlay - Desktop Only (XL screens > 1280px) */}
