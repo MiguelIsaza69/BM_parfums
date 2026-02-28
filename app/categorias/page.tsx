@@ -28,7 +28,7 @@ export default function CategoriesPage() {
                 </p>
             </div>
 
-            <div className="px-6 md:px-12 lg:px-24 pb-24 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="px-6 md:px-12 lg:px-24 pb-24 grid grid-cols-[repeat(auto-fit,minmax(300px,400px))] gap-6 justify-center">
                 {categories.map((cat) => (
                     <Link
                         key={cat.id}

@@ -37,7 +37,7 @@ export function ProductGrid() {
                 <span className="font-mono text-sm">[01 — {products.length.toString().padStart(2, '0')}]</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-6">
                 {products.map((product, idx) => {
                     // Robust Image Extraction
                     let mainImage = "/placeholder.jpg";

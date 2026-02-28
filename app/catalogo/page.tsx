@@ -275,7 +275,7 @@ function CatalogContent() {
                     ) : filteredProducts.length === 0 ? (
                         <div className="text-center py-20 font-mono text-neutral-500">No se encontraron productos.</div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
                             {paginatedProducts.map((product) => (
                                 <div key={product.id} className="group relative border border-white/10 p-6 hover:border-gold/50 transition-colors bg-neutral-900/20">
                                     <div className="relative h-[250px] w-full flex items-center justify-center mb-6 bg-white p-4 overflow-hidden">

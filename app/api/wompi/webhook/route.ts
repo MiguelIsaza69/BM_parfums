@@ -19,30 +19,52 @@ export async function POST(request: Request) {
             const status = transaction.status; // APPROVED, DECLINED, VOIDED, etc.
 
             // Mapping Wompi status to our DB status
-            let orderStatus = 'pending';
+            let orderStatus = 'pending'; // Always keep as pending per user request
             if (status === 'APPROVED') {
-                orderStatus = 'processing';
+                orderStatus = 'pending'; // Keep as pending even if approved
             } else if (status === 'DECLINED' || status === 'ERROR') {
                 orderStatus = 'failed';
             }
 
             // Update order in Supabase
-            const { error } = await supabase
+            const { data: updatedOrder, error } = await supabase
                 .from('orders')
                 .update({
                     status: orderStatus,
                     payment_id: transaction.id,
                     payment_method: transaction.payment_method_type
                 })
-                .eq('id', reference);
+                .eq('id', reference)
+                .select()
+                .single();
 
             if (error) {
                 console.error("Error updating order from webhook:", error);
                 return NextResponse.json({ error: 'DB Update failed' }, { status: 500 });
             }
 
-            // If approved, you might want to trigger the invoice email here too 
-            // if you didn't send it at the start of the checkout.
+            // If approved, trigger the invoice email automatically
+            if (status === 'APPROVED' && updatedOrder) {
+                console.log(`[WEBHOOK] Triggering automatic email for Order #${reference}`);
+                try {
+                    // Call our own internal API route
+                    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `https://${request.headers.get('host')}`;
+                    await fetch(`${baseUrl}/api/send-invoice`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            orderId: updatedOrder.id,
+                            email: updatedOrder.shipping_info.email,
+                            name: updatedOrder.shipping_info.name || "Cliente",
+                            items: updatedOrder.items || [],
+                            total: updatedOrder.total || 0,
+                            shipping_info: updatedOrder.shipping_info
+                        })
+                    });
+                } catch (emailError) {
+                    console.error("[WEBHOOK] Failed to send automatic email:", emailError);
+                }
+            }
         }
 
         return NextResponse.json({ received: true });

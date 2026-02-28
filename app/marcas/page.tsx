@@ -28,7 +28,7 @@ export default function BrandsPage() {
                 </p>
             </div>
 
-            <div className="px-6 md:px-12 lg:px-24 pb-24 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            <div className="px-6 md:px-12 lg:px-24 pb-24 grid grid-cols-[repeat(auto-fit,minmax(200px,260px))] gap-6 justify-center">
                 {brands.map((brand) => (
                     <Link
                         key={brand.id}

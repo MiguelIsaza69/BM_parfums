@@ -40,10 +40,14 @@ export async function POST(request: Request) {
                 </div>
                 
                 <div style="padding: 20px; border: 1px solid #eee;">
-                    <h2 style="color: #000; margin-top: 0;">¡Gracias por tu compra, ${name}!</h2>
-                    <p>Tu pedido <strong>#${orderId.slice(0, 8)}</strong> ha sido confirmado.</p>
+                    <h2 style="color: #000; margin-top: 0;">¡Hemos recibido tu pedido, ${name}!</h2>
+                    <p>Tu pedido <strong>#${orderId.slice(0, 8).toUpperCase()}</strong> ha sido registrado exitosamente y se encuentra en estado <strong>PENDIENTE</strong>.</p>
                     
-                    <h3 style="border-bottom: 2px solid #D4AF37; padding-bottom: 5px; margin-top: 20px;">Resumen del Pedido</h3>
+                    <div style="background-color: #fcf8e3; border: 1px solid #faebcc; color: #8a6d3b; padding: 15px; border-radius: 4px; margin: 20px 0;">
+                        <strong>Información importante:</strong> Tu pedido tardará de <strong>3 a 5 días hábiles</strong> en llegar a su destino. Te mantendremos informado sobre cualquier cambio en el estado de tu envío.
+                    </div>
+
+                    <h3 style="border-bottom: 2px solid #D4AF37; padding-bottom: 5px; margin-top: 20px;">Recibo de Compra</h3>
                     <table style="width: 100%; border-collapse: collapse;">
                         <thead>
                             <tr style="background-color: #f9f9f9; text-transform: uppercase; font-size: 12px;">
@@ -80,7 +84,7 @@ export async function POST(request: Request) {
         const { data, error } = await resend.emails.send({
             from: 'BM Parfums <ventas@bmparfums.com>',
             to: [finalRecipient],
-            subject: `Confirmación de Pedido #${orderId.slice(0, 8).toUpperCase()} - BM Parfums`,
+            subject: `Pedido Recibido #${orderId.slice(0, 8).toUpperCase()} - BM Parfums`,
             html: emailHtml,
         });
 

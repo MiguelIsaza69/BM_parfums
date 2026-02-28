@@ -142,9 +142,9 @@ export function Header() {
 
     return (
         <>
-            <header className="fixed top-0 left-0 w-full z-50 px-8 py-8 flex justify-between items-center transition-all duration-300 bg-gradient-to-b from-black from-0% via-black/60 to-transparent pb-12">
+            <header className="fixed top-0 left-0 w-full z-50 px-8 py-8 flex justify-between items-center transition-all duration-300 bg-gradient-to-b from-black from-0% via-black/60 to-transparent pointer-events-none">
                 {/* Logo */}
-                <Link href="/" className="hover:scale-105 transition-transform">
+                <Link href="/" className="hover:scale-105 transition-transform pointer-events-auto">
                     <img
                         src="https://res.cloudinary.com/dbeaem1xr/image/upload/v1771865096/WhatsApp_Image_2026-02-11_at_3.37.42_PM-removebg-preview_lz7whv.png"
                         alt="BM Parfums"
@@ -153,7 +153,7 @@ export function Header() {
                 </Link>
 
                 {/* Right Side Container */}
-                <div className="flex items-center gap-12">
+                <div className="flex items-center gap-12 pointer-events-auto">
                     {/* Desktop Nav */}
                     <nav className="hidden md:flex gap-8 items-center">
                         {isAdmin && (
@@ -326,7 +326,7 @@ export function Header() {
 
                 {/* Mobile Nav Overlay */}
                 {isMobileMenuOpen && (
-                    <div className="absolute top-full left-0 w-full bg-black/95 border-b border-white/10 p-8 flex flex-col gap-6 md:hidden glass-panel">
+                    <div className="absolute top-full left-0 w-full bg-black/95 border-b border-white/10 p-8 flex flex-col gap-6 md:hidden glass-panel pointer-events-auto">
                         {[
                             { name: "Categorias", path: "/categorias" },
                             { name: "Marcas", path: "/marcas" },

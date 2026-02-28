@@ -45,7 +45,9 @@ export default function OrderConfirmationPage() {
     }, [params?.id, router, isAdmin]);
 
     const handlePrint = () => {
-        window.print();
+        if (typeof window !== 'undefined') {
+            window.print();
+        }
     };
 
     const handleSendEmail = async () => {
@@ -123,17 +125,17 @@ export default function OrderConfirmationPage() {
                 <Header />
             </div>
 
-            <div className="container mx-auto px-6 md:px-12 lg:px-24 pt-32 pb-24 print:pt-8 print:pb-8">
+            <div className="container mx-auto px-6 md:px-12 lg:px-24 pt-48 pb-24 print:pt-8 print:pb-8">
 
                 {/* Status Banner - Only for Customers */}
                 {!isAdmin && (
-                    <div className="bg-green-500/10 border border-green-500/20 p-8 rounded-lg mb-12 flex flex-col items-center text-center print:hidden">
-                        <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4 text-black">
+                    <div className="bg-gold/10 border border-gold/20 p-8 rounded-lg mb-12 flex flex-col items-center text-center print:hidden">
+                        <div className="w-16 h-16 bg-gold rounded-full flex items-center justify-center mb-4 text-black">
                             <CheckCircle size={32} strokeWidth={3} />
                         </div>
-                        <h1 className="text-3xl font-serif text-white mb-2">¡Pedido Confirmado!</h1>
+                        <h1 className="text-3xl font-serif text-white mb-2">¡Pedido Recibido!</h1>
                         <p className="text-neutral-400 font-mono text-sm max-w-md">
-                            Tu pedido ha sido aprobado exitosamente. Hemos enviado una copia de la factura a tu correo electrónico.
+                            Tu pedido ha sido tomado exitosamente. Recibirás tus productos en un lapso de <strong>3 a 5 días hábiles</strong>.
                         </p>
                     </div>
                 )}
@@ -192,8 +194,8 @@ export default function OrderConfirmationPage() {
                         <div className="text-right">
                             <p className="font-mono text-sm font-bold">Pedido #{id.slice(0, 8).toUpperCase()}</p>
                             <p className="font-mono text-xs text-neutral-500">{new Date(created_at).toLocaleDateString()} {new Date(created_at).toLocaleTimeString()}</p>
-                            <div className="mt-2 inline-block px-3 py-1 bg-green-100 text-green-800 text-xs font-bold uppercase tracking-wider rounded border border-green-200">
-                                Aprobado
+                            <div className="mt-2 inline-block px-3 py-1 bg-neutral-100 text-neutral-800 text-xs font-bold uppercase tracking-wider rounded border border-neutral-200">
+                                Pendiente
                             </div>
                         </div>
                     </div>
