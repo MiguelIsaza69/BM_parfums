@@ -11,7 +11,7 @@ export function TermsModal({ isOpen, onClose }: TermsModalProps) {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-8">
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4 md:p-8">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300"
@@ -74,9 +74,11 @@ export function TermsModal({ isOpen, onClose }: TermsModalProps) {
                     </section>
 
                     <section>
-                        <h3 className="text-gold uppercase tracking-widest mb-3 text-xs">6. Privacidad</h3>
+                        <h3 className="text-gold uppercase tracking-widest mb-3 text-xs">6. Privacidad y Comunicaciones</h3>
                         <p>
-                            Su privacidad es fundamental. Los datos recopilados durante el registro y compra se utilizarán exclusivamente para la gestión de sus pedidos y comunicaciones oficiales de BM Parfums siguiendo las leyes de protección de datos vigentes.
+                            Su privacidad es fundamental. Los datos recopilados durante el registro y compra se utilizarán exclusivamente para la gestión de sus pedidos.
+                            <br /><br />
+                            Al registrarse en **BM Parfums**, usted acepta y otorga su consentimiento expreso para recibir comunicaciones promocionales, boletines informativos y ofertas exclusivas relacionadas con nuestros productos a través del correo electrónico proporcionado. Puede solicitar dejar de recibir estas comunicaciones en cualquier momento contactándonos.
                         </p>
                     </section>
 

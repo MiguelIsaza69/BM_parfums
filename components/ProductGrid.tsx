@@ -33,7 +33,7 @@ export function ProductGrid() {
     return (
         <section className="bg-black py-16 px-8 md:px-24 lg:px-48">
             <div className="flex justify-between items-end mb-12 border-b border-white/10 pb-6">
-                <h2 className="text-4xl md:text-6xl font-serif">Los mas esperados</h2>
+                <h2 className="text-4xl md:text-6xl font-serif">Los más esperados</h2>
                 <span className="font-mono text-sm">[01 — {products.length.toString().padStart(2, '0')}]</span>
             </div>
 
@@ -71,7 +71,7 @@ export function ProductGrid() {
                                 />
 
                                 {/* Hover Overlay - Desktop Only (XL screens > 1280px) */}
-                                <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center text-center p-8 opacity-0 xl:group-hover:opacity-100 transition-all duration-500 ease-in-out backdrop-blur-sm z-10 invisible xl:group-hover:visible translate-y-2 xl:group-hover:translate-y-0 hidden xl:flex">
+                                <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center text-center p-8 opacity-0 xl:group-hover:opacity-100 transition-all duration-500 ease-in-out backdrop-blur-sm z-10 invisible xl:group-hover:visible translate-y-2 xl:group-hover:translate-y-0 max-xl:hidden">
                                     <div className="w-12 h-px bg-gold/50 mb-6 scale-x-0 group-hover:scale-x-100 transition-transform duration-700 delay-100" />
                                     <p className="text-neutral-400 text-[10px] mb-8 leading-relaxed font-mono uppercase tracking-[3px] line-clamp-4 px-2 italic">{product.description || "Nuestra esencia única, capturada en un frasco de alta perfumería."}</p>
 

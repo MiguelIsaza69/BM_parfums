@@ -10,7 +10,7 @@ export default function ContactoPage() {
         {
             name: "WhatsApp",
             icon: <MessageCircle className="w-6 h-6" />,
-            url: "https://wa.me/573024539932", // Assuming this is the number based on the invoice
+            url: "https://wa.me/573106129517", // Assuming this is the number based on the invoice
             color: "bg-[#25D366]",
             label: "CHATEA CON NOSOTROS"
         },
@@ -97,7 +97,7 @@ export default function ContactoPage() {
                                 <Phone size={18} />
                                 <span className="text-xs font-mono uppercase tracking-widest">WhatsApp Business</span>
                             </div>
-                            <p className="text-neutral-400 font-serif text-center md:text-right">+57 302 453 9932</p>
+                            <p className="text-neutral-400 font-serif text-center md:text-right">+57 310 612 9517</p>
                         </div>
                     </div>
 

@@ -90,8 +90,14 @@ export default function ProductDetailsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-black text-white flex items-center justify-center font-mono animate-pulse">
-                CARGANDO DETALLES...
+            <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-4">
+                <div className="font-mono text-neutral-400 animate-pulse uppercase tracking-[4px] text-xs">Cargando detalles...</div>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="text-[10px] font-mono text-gold hover:text-white transition-colors underline underline-offset-4"
+                >
+                    ¿Tarda demasiado? Recargar
+                </button>
             </div>
         );
     }

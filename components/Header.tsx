@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Search, ShoppingCart, Menu, User, X } from "lucide-react";
+import { Search, ShoppingCart, Menu, User, X, RefreshCcw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { AuthSidebar } from "./AuthSidebar";
 import { CartSidebar } from "./CartSidebar";
@@ -165,9 +165,9 @@ export function Header() {
                             </Link>
                         )}
                         {[
-                            { name: "Categorias", path: "/categorias" },
+                            { name: "Categorías", path: "/categorias" },
                             { name: "Marcas", path: "/marcas" },
-                            { name: "Catalogo", path: "/catalogo" },
+                            { name: "Catálogo", path: "/catalogo" },
                             { name: "Contacto", path: "/contacto" }
                         ].map((item) => (
                             <Link
@@ -302,6 +302,7 @@ export function Header() {
                         <button
                             onClick={() => user ? router.push("/dashboard") : setIsAuthOpen(true)}
                             className="flex items-center gap-2 hover:text-gold transition-colors"
+                            title="Mi Cuenta"
                         >
                             <User className="w-5 h-5" />
                         </button>
@@ -309,9 +310,22 @@ export function Header() {
                         <button
                             onClick={() => setIsOpen(true)}
                             className="flex items-center gap-2 hover:text-gold transition-colors"
+                            title="Carrito"
                         >
                             <ShoppingCart className="w-5 h-5" />
                             <span className="text-xs font-mono hidden md:inline">({count})</span>
+                        </button>
+
+                        {/* Force Reload Button */}
+                        <button
+                            onClick={() => {
+                                // Hard reload simulating Ctrl+F5 on mobile
+                                window.location.href = window.location.pathname + '?v=' + new Date().getTime();
+                            }}
+                            className="flex items-center gap-2 text-neutral-500 hover:text-gold transition-colors"
+                            title="Recargar Página"
+                        >
+                            <RefreshCcw className="w-5 h-5" />
                         </button>
 
                         {/* Mobile Menu Toggle */}
@@ -336,9 +350,9 @@ export function Header() {
                             </Link>
                         )}
                         {[
-                            { name: "Categorias", path: "/categorias" },
+                            { name: "Categorías", path: "/categorias" },
                             { name: "Marcas", path: "/marcas" },
-                            { name: "Catalogo", path: "/catalogo" },
+                            { name: "Catálogo", path: "/catalogo" },
                             { name: "Contacto", path: "/contacto" }
                         ].map((item) => (
                             <Link

@@ -55,7 +55,7 @@ function CatalogContent() {
                     // Pre-process products for easier filtering
                     const processed = pData.map(p => ({
                         ...p,
-                        brandName: p.brands?.name || "Generico",
+                        brandName: p.brands?.name || "Genérico",
                         genderName: p.genders?.name || "Unisex",
                         categoryIds: p.category_ids || [],
                         // Robust Image Extraction
@@ -305,7 +305,15 @@ function CatalogContent() {
 
                     {/* Grid */}
                     {isLoading ? (
-                        <div className="text-center py-20 font-mono text-neutral-500">Cargando catálogo...</div>
+                        <div className="text-center py-20 flex flex-col items-center gap-4">
+                            <span className="font-mono text-neutral-500 animate-pulse uppercase tracking-widest text-xs">Cargando catálogo...</span>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="text-[10px] font-mono text-gold hover:text-white transition-colors underline underline-offset-4"
+                            >
+                                ¿Tarda demasiado? Recargar
+                            </button>
+                        </div>
                     ) : filteredProducts.length === 0 ? (
                         <div className="text-center py-20 font-mono text-neutral-500">No se encontraron productos.</div>
                     ) : (

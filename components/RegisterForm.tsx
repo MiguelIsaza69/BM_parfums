@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { sileo } from "sileo";
+import { Input } from "./Input";
 
 interface RegisterFormProps {
     onSuccess?: () => void;
@@ -124,17 +125,3 @@ export function RegisterForm({ onSuccess, initialEmail = "", setView }: Register
     );
 }
 
-function Input({ label, type, placeholder, value, onChange }: { label: string, type: string, placeholder: string, value: string, onChange: (val: string) => void }) {
-    return (
-        <div className="flex flex-col gap-2">
-            <label className="text-xs font-mono text-neutral-500 uppercase tracking-wider">{label}</label>
-            <input
-                type={type}
-                placeholder={placeholder}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="bg-neutral-900/50 border border-white/10 text-white p-3 text-sm focus:border-gold focus:outline-none transition-colors placeholder:text-neutral-700 font-mono w-full"
-            />
-        </div>
-    );
-}

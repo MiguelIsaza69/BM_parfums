@@ -9,6 +9,7 @@ import { Footer } from "@/components/Footer";
 import { LayoutDashboard, Users, Package, Settings, LogOut, FilePlus, RefreshCcw, Plus, Trash2, Edit, Check, X, FileText, Send, ShoppingBag } from "lucide-react";
 import { sileo } from "sileo";
 import { updateHeroSlide, updateBrand } from "../actions/config";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 export default function AdminDashboard() {
     const router = useRouter();
@@ -60,6 +61,95 @@ export default function AdminDashboard() {
 
     const [isSendingEmail, setIsSendingEmail] = useState<string | null>(null);
     const [sentOrders, setSentOrders] = useState<string[]>([]);
+
+    // Promotions State
+    const [promoSubject, setPromoSubject] = useState("");
+    const [promoTitle, setPromoTitle] = useState("");
+    const [promoMessage, setPromoMessage] = useState("");
+    const [promoImages, setPromoImages] = useState("");
+    const [isSendingPromo, setIsSendingPromo] = useState(false);
+
+    // Confirm Modal State
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [confirmModalConfig, setConfirmModalConfig] = useState({
+        title: "",
+        message: "",
+        confirmText: "",
+        isDanger: false,
+        onConfirm: () => { }
+    });
+
+    const openConfirmModal = (config: {
+        title: string;
+        message: string;
+        confirmText?: string;
+        isDanger?: boolean;
+        onConfirm: () => void;
+    }) => {
+        setConfirmModalConfig({
+            title: config.title,
+            message: config.message,
+            confirmText: config.confirmText || "Confirmar",
+            isDanger: config.isDanger || false,
+            onConfirm: config.onConfirm
+        });
+        setIsConfirmModalOpen(true);
+    };
+
+    const handleSendPromotion = async () => {
+        setIsSendingPromo(true);
+        try {
+            const recipients = usersList.map(u => u.email).filter(Boolean);
+            const imageArray = promoImages.split(/\n/).map(img => img.trim()).filter(img => img.length > 0);
+
+            const response = await fetch('/api/promotions/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    subject: promoSubject,
+                    title: promoTitle,
+                    htmlBody: promoMessage.replace(/\n/g, '<br/>'),
+                    images: imageArray,
+                    recipients
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                addToast("¡Promoción enviada con éxito!", "success");
+                setPromoSubject("");
+                setPromoTitle("");
+                setPromoMessage("");
+                setPromoImages("");
+            } else {
+                throw new Error(result.error || "Error al enviar");
+            }
+        } catch (error: any) {
+            console.error("Error sending promotion:", error);
+            addToast("Error: " + error.message, "error");
+        } finally {
+            setIsSendingPromo(false);
+        }
+    };
+
+    const requestSendPromotion = () => {
+        if (!promoSubject || !promoMessage) {
+            addToast("Por favor completa el asunto y el mensaje.", "warning");
+            return;
+        }
+        if (usersList.length === 0) {
+            addToast("No hay usuarios registrados para enviar promociones.", "error");
+            return;
+        }
+
+        openConfirmModal({
+            title: "Enviar Promoción",
+            message: `¿Estás seguro de enviar esta promoción a ${usersList.length} clientes registrados?`,
+            confirmText: "Enviar Ahora",
+            isDanger: false,
+            onConfirm: handleSendPromotion
+        });
+    };
 
     const handleSendInvoice = async (order: any) => {
         setIsSendingEmail(order.id);
@@ -138,7 +228,7 @@ export default function AdminDashboard() {
     // --- USERS STATE ---
     const [usersList, setUsersList] = useState<any[]>([]);
     useEffect(() => {
-        if (activeSection === 'users') {
+        if (activeSection === 'users' || activeSection === 'promotions') {
             const fetchUsers = async () => {
                 const { data } = await supabase.from('profiles').select('*');
                 if (data) setUsersList(data);
@@ -263,10 +353,17 @@ export default function AdminDashboard() {
         finally { setIsSubmittingHero(false); }
     };
     const handleDeleteHeroImage = async (id: string) => {
-        if (!confirm("¿Eliminar imagen?")) return;
-        const { error } = await supabase.from('hero_slides').delete().eq('id', id);
-        if (error) addToast("Error: " + error.message, "error");
-        else { setHeroImages(heroImages.filter(img => img.id !== id)); addToast("Imagen eliminada.", "success"); }
+        openConfirmModal({
+            title: "Eliminar Imagen",
+            message: "¿Estás seguro de que deseas eliminar esta imagen del Banner principal?",
+            confirmText: "Eliminar",
+            isDanger: true,
+            onConfirm: async () => {
+                const { error } = await supabase.from('hero_slides').delete().eq('id', id);
+                if (error) addToast("Error: " + error.message, "error");
+                else { setHeroImages(heroImages.filter(img => img.id !== id)); addToast("Imagen eliminada.", "success"); }
+            }
+        });
     };
     const handleStartEditHero = (img: any) => { setEditingHeroId(img.id); setEditHeroUrl(img.image_url); };
     const handleCancelEditHero = () => { setEditingHeroId(null); setEditHeroUrl(""); };
@@ -302,10 +399,17 @@ export default function AdminDashboard() {
         finally { setIsSubmittingBrand(false); }
     };
     const handleDeleteBrand = async (id: string) => {
-        if (!confirm("¿Eliminar marca?")) return;
-        const { error } = await supabase.from('brands').delete().eq('id', id);
-        if (error) addToast("Error: " + error.message, "error");
-        else { setBrands(brands.filter(b => b.id !== id)); addToast("Marca eliminada.", "success"); }
+        openConfirmModal({
+            title: "Eliminar Marca",
+            message: "¿Estás seguro de que deseas eliminar esta marca de forma permanente?",
+            confirmText: "Eliminar",
+            isDanger: true,
+            onConfirm: async () => {
+                const { error } = await supabase.from('brands').delete().eq('id', id);
+                if (error) addToast("Error: " + error.message, "error");
+                else { setBrands(brands.filter(b => b.id !== id)); addToast("Marca eliminada.", "success"); }
+            }
+        });
     };
     const handleStartEditBrand = (b: any) => { setEditingBrandId(b.id); setEditBrandName(b.name); setEditBrandLogo(b.logo_url || ""); };
     const handleCancelEditBrand = () => { setEditingBrandId(null); setEditBrandName(""); setEditBrandLogo(""); };
@@ -454,7 +558,7 @@ export default function AdminDashboard() {
                 throw new Error(result.error?.message || result.error || "Error al guardar en el servidor");
             }
 
-            addToast("Guardado correctamente!", "success");
+            addToast("¡Guardado correctamente!", "success");
             resetProductForm();
 
             // OPTIMISTIC UPDATE from API response (Avoids stale read)
@@ -528,17 +632,35 @@ export default function AdminDashboard() {
     };
 
     const handleDeleteProduct = async (id: string) => {
-        // if (!confirm("¿Eliminar producto?")) return; // Removed at user request
-        const { error } = await supabase.from('products').delete().eq('id', id);
-        if (error) addToast("Error: " + error.message, "error");
-        else {
-            if (productForm.id === id) resetProductForm();
-            setProducts(products.filter(p => p.id !== id));
-            addToast("Producto eliminado.", "success");
-        }
+        openConfirmModal({
+            title: "Eliminar Producto",
+            message: "¿Estás seguro de que deseas eliminar este producto de la base de datos?",
+            confirmText: "Eliminar",
+            isDanger: true,
+            onConfirm: async () => {
+                const { error } = await supabase.from('products').delete().eq('id', id);
+                if (error) addToast("Error: " + error.message, "error");
+                else {
+                    if (productForm.id === id) resetProductForm();
+                    setProducts(products.filter(p => p.id !== id));
+                    addToast("Producto eliminado.", "success");
+                }
+            }
+        });
     };
 
-    if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-gold font-mono">Verifying Admin Access...</div>;
+    if (loading) return (
+        <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-6">
+            <div className="text-gold font-mono animate-pulse uppercase tracking-[4px] text-xs">Verificando Acceso de Administrador...</div>
+            <button
+                onClick={() => window.location.reload()}
+                className="flex items-center gap-2 text-[10px] font-mono text-neutral-500 hover:text-white transition-colors border border-white/10 px-4 py-2 hover:border-gold rounded"
+            >
+                <RefreshCcw size={12} />
+                ¿Tarda mucho? Recargar
+            </button>
+        </div>
+    );
 
     const renderContent = () => {
         switch (activeSection) {
@@ -824,7 +946,7 @@ export default function AdminDashboard() {
                                             <td className="p-4 align-top text-gold font-bold font-mono text-base">${Number(order.total).toLocaleString('es-CO')}</td>
                                             <td className="p-4 align-top">
                                                 {order.status === 'completed' || order.status === 'cancelled' ? (
-                                                    <div className="text-neutral-500 italic text-sm max-w-[200px] break-words">{order.description || "Sin notas"}</div>
+                                                    <div className="text-neutral-500 italic text-sm max-w-[200px] wrap-break-word">{order.description || "Sin notas"}</div>
                                                 ) : (
                                                     <textarea
                                                         defaultValue={order.description || ""}
@@ -977,11 +1099,11 @@ export default function AdminDashboard() {
                                         <>
                                             <div className="flex items-center gap-3 overflow-hidden">
                                                 {b.logo_url ? (
-                                                    <div className="w-8 h-8 bg-white/5 rounded-full overflow-hidden flex-shrink-0 border border-white/10">
+                                                    <div className="w-8 h-8 bg-white/5 rounded-full overflow-hidden shrink-0 border border-white/10">
                                                         <img src={b.logo_url} alt={b.name} className="w-full h-full object-cover" />
                                                     </div>
                                                 ) : (
-                                                    <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center text-[10px] text-neutral-500 font-mono border border-white/10 flex-shrink-0">
+                                                    <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center text-[10px] text-neutral-500 font-mono border border-white/10 shrink-0">
                                                         {b.name.slice(0, 2).toUpperCase()}
                                                     </div>
                                                 )}
@@ -999,6 +1121,126 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             );
+            case 'promotions':
+                return (
+                    <div className="max-w-7xl mx-auto">
+                        <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-6">
+                            <div>
+                                <h2 className="text-3xl font-serif text-white">Correos Promocionales</h2>
+                                <p className="text-neutral-500 font-mono text-xs mt-2 uppercase tracking-widest">Enviar a {usersList.length} clientes registrados</p>
+                            </div>
+                            <button
+                                onClick={requestSendPromotion}
+                                disabled={isSendingPromo || usersList.length === 0}
+                                className="bg-gold text-black uppercase font-bold text-xs py-4 px-10 hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-gold/10"
+                            >
+                                {isSendingPromo ? (
+                                    <>
+                                        <RefreshCcw size={18} className="animate-spin" />
+                                        ENVIANDO...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send size={18} />
+                                        ENVIAR PROMOCIÓN
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+                            {/* Form Side */}
+                            <div className="space-y-6 bg-neutral-900/30 border border-white/10 p-8 rounded-lg backdrop-blur-sm">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-mono text-neutral-500 uppercase tracking-widest">Asunto del Correo (Interno)</label>
+                                    <input
+                                        type="text"
+                                        value={promoSubject}
+                                        onChange={e => setPromoSubject(e.target.value)}
+                                        placeholder="Ej: Oferta Especial de Fin de Semana"
+                                        className="bg-black border border-white/20 p-4 text-sm text-white focus:border-gold outline-none font-mono rounded"
+                                    />
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-mono text-neutral-500 uppercase tracking-widest">Título de la Promoción (Visible)</label>
+                                    <input
+                                        type="text"
+                                        value={promoTitle}
+                                        onChange={e => setPromoTitle(e.target.value)}
+                                        placeholder="Ej: ¡20% de Descuento en Versace!"
+                                        className="bg-black border border-white/20 p-4 text-sm text-white focus:border-gold outline-none font-mono rounded"
+                                    />
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-mono text-neutral-500 uppercase tracking-widest">Contenido (Mensaje)</label>
+                                    <textarea
+                                        value={promoMessage}
+                                        onChange={e => setPromoMessage(e.target.value)}
+                                        placeholder="Escribe aquí el contenido principal de tu correo..."
+                                        rows={8}
+                                        className="bg-black border border-white/20 p-4 text-sm text-white focus:border-gold outline-none font-mono rounded resize-none"
+                                    />
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-mono text-neutral-500 uppercase tracking-widest">Imágenes (Una URL por línea)</label>
+                                    <textarea
+                                        value={promoImages}
+                                        onChange={e => setPromoImages(e.target.value)}
+                                        placeholder="https://ejemplo.com/banner.jpg"
+                                        rows={4}
+                                        className="bg-black border border-white/20 p-4 text-sm text-white focus:border-gold outline-none font-mono rounded resize-none"
+                                    />
+                                    <p className="text-[10px] text-neutral-600 mt-1 uppercase tracking-tighter italic font-bold">Estas imágenes aparecerán al final del mensaje.</p>
+                                </div>
+                            </div>
+
+                            {/* Preview Side */}
+                            <div className="sticky top-40 space-y-4">
+                                <label className="text-xs font-mono text-neutral-500 uppercase tracking-widest mb-2 block">Previsualización Real-Time</label>
+                                <div className="bg-white rounded-lg shadow-2xl overflow-hidden border border-white/20 text-neutral-800">
+                                    {/* Header */}
+                                    <div className="bg-black py-6 text-center">
+                                        <h1 className="text-[#D4AF37] text-2xl font-serif tracking-[4px] font-normal">BM PARFUMS</h1>
+                                    </div>
+
+                                    {/* Body */}
+                                    <div className="p-10 bg-white min-h-[400px]">
+                                        {promoTitle && (
+                                            <h2 className="text-2xl font-serif text-black border-b border-[#D4AF37] pb-4 mb-6 text-center uppercase tracking-tight">
+                                                {promoTitle}
+                                            </h2>
+                                        )}
+
+                                        <div className="text-sm leading-relaxed mb-8 whitespace-pre-wrap">
+                                            {promoMessage || "Tu mensaje aparecerá aquí..."}
+                                        </div>
+
+                                        {promoImages.split('\n').map((url, i) => url.trim() && (
+                                            <div key={i} className="mb-4 text-center">
+                                                <img
+                                                    src={url.trim()}
+                                                    alt="Preview Promo"
+                                                    className="max-w-full rounded mx-auto"
+                                                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Footer */}
+                                    <div className="bg-[#f9f9f9] p-8 text-center text-[10px] text-neutral-500 border-t border-neutral-100">
+                                        <p className="mb-2">Has recibido este correo porque estás registrado en BM Parfums.</p>
+                                        <p className="mb-4">Para darte de baja, contacta a <span className="text-[#D4AF37] font-bold">Bmparfums.med@gmail.com</span></p>
+                                        <p className="uppercase tracking-[2px] font-bold text-neutral-400">&copy; {new Date().getFullYear()} BM PARFUMS</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
             default:
                 return (
                     <div>
@@ -1075,6 +1317,7 @@ export default function AdminDashboard() {
                         { id: 'products', label: 'Productos', icon: Package },
                         { id: 'users', label: 'Usuarios', icon: Users },
                         { id: 'orders', label: 'Pedidos', icon: ShoppingBag },
+                        { id: 'promotions', label: 'Promociones', icon: Send },
                         { id: 'config', label: 'Configuración', icon: Settings },
                     ].map(sec => (
                         <button
@@ -1092,6 +1335,16 @@ export default function AdminDashboard() {
             </div>
             <Footer />
             {/* <ToastContainer toasts={toasts} removeToast={removeToast} /> */}
+
+            <ConfirmModal
+                isOpen={isConfirmModalOpen}
+                onClose={() => setIsConfirmModalOpen(false)}
+                onConfirm={confirmModalConfig.onConfirm}
+                title={confirmModalConfig.title}
+                message={confirmModalConfig.message}
+                confirmText={confirmModalConfig.confirmText}
+                isDanger={confirmModalConfig.isDanger}
+            />
         </main>
     );
 }

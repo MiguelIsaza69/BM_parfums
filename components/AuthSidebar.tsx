@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { sileo } from "sileo";
 import { RegisterForm } from "./RegisterForm";
+import { Input } from "./Input";
 
 type AuthView = "login" | "register" | "forgot-password";
 
@@ -185,17 +186,3 @@ function ForgotPasswordForm({ setView }: { setView: (v: AuthView) => void }) {
     );
 }
 
-function Input({ label, type, placeholder, value, onChange }: { label: string, type: string, placeholder: string, value: string, onChange: (val: string) => void }) {
-    return (
-        <div className="flex flex-col gap-2">
-            <label className="text-xs font-mono text-neutral-500 uppercase tracking-wider">{label}</label>
-            <input
-                type={type}
-                placeholder={placeholder}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="bg-neutral-900/50 border border-white/10 text-white p-3 text-sm focus:border-gold focus:outline-none transition-colors placeholder:text-neutral-700 font-mono"
-            />
-        </div>
-    );
-}

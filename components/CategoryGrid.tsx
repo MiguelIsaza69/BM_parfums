@@ -25,7 +25,7 @@ export function CategoryGrid() {
     return (
         <section className="bg-black py-12 border-b border-white/10 overflow-hidden">
             <div className="flex justify-between items-end px-6 md:px-12 mb-8">
-                <h2 className="text-4xl md:text-6xl font-serif">Categorias</h2>
+                <h2 className="text-4xl md:text-6xl font-serif">Categorías</h2>
                 <span className="font-mono text-sm">[01 — {categories.length.toString().padStart(2, '0')}]</span>
             </div>
 
@@ -44,7 +44,7 @@ export function CategoryGrid() {
                                 className="object-cover xl:grayscale group-hover:grayscale-0 transition-all duration-700"
                             />
                             {/* Overlay Gradient */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-80 xl:opacity-60 xl:group-hover:opacity-40 transition-opacity" />
+                            <div className="absolute inset-0 bg-linear-to-t from-black/95 via-black/40 to-transparent opacity-80 xl:opacity-60 xl:group-hover:opacity-40 transition-opacity" />
 
                             {/* Label */}
                             <div className="absolute bottom-0 left-0 w-full p-6 flex justify-between items-center z-10">
