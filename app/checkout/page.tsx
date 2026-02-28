@@ -190,18 +190,19 @@ export default function CheckoutPage() {
         }]).select().single();
 
         if (error) {
-            console.error("Error creating order:", JSON.stringify(error, null, 2));
-            console.error("Error Message:", error.message);
-            console.error("Error Details:", error.details);
-            console.error("Error Hint:", error.hint);
-            console.error("Error Code:", error.code);
+            console.error("Error creating order:", error);
             sileo.error({
                 title: "Error de pedido",
-                description: `Hubo un error (${error.code}): ${error.message || "Intenta nuevamente."}`
+                description: `Hubo un error al crear el pedido.`
             });
             setIsProcessing(false);
             return;
         }
+
+        const deleteOrder = async () => {
+            console.log("[Checkout] Eliminando pedido fallido:", order.id);
+            await supabase.from('orders').delete().eq('id', order.id);
+        };
 
         // 3. Prepare Wompi Data (EXACT INTEGERS ONLY)
         const amountInCents = Math.round(total * 100);
@@ -265,6 +266,7 @@ export default function CheckoutPage() {
                 console.log("[Wompi] API Response:", result);
 
                 if (result.error) {
+                    await deleteOrder(); // Borra el pedido si Wompi falla
                     const errorMsg = typeof result.error === 'string' ? result.error : (result.error.reason || JSON.stringify(result.error));
                     throw new Error(`Error de Wompi: ${errorMsg}`);
                 }
@@ -317,7 +319,9 @@ export default function CheckoutPage() {
                     return;
                 }
 
-                throw new Error("Wompi no generó el link de Bancolombia a tiempo. Por favor intenta con el método Recomendado (Widget).");
+                // Si después de los reintentos no hay URL ni estado aprobado, borramos el pedido
+                await deleteOrder();
+                throw new Error("Wompi no generó el link de Bancolombia a tiempo. El pedido ha sido cancelado para evitar duplicados.");
             }
 
             // B. Standard Widget Flow
@@ -374,12 +378,16 @@ export default function CheckoutPage() {
                     // @ts-ignore
                     const checkout = new window.WidgetCheckout(checkoutOptions);
 
-                    checkout.open((result: any) => {
+                    checkout.open(async (result: any) => {
                         console.log('Transaction Result:', result);
                         const transaction = result.transaction;
                         if (transaction?.status === 'APPROVED') {
                             clearCart();
                             window.location.href = `/order-confirmation/${reference}`;
+                        } else if (transaction?.status === 'DECLINED' || transaction?.status === 'VOIDED') {
+                            // Opcional: Podríamos borrarlo aquí también si falló el pago en el widget
+                            // Pero como el usuario puede reintentar, lo dejamos PENDING por ahora.
+                            console.log("Pago no aprobado en el widget.");
                         }
                     });
 
@@ -414,11 +422,12 @@ export default function CheckoutPage() {
                 openWidget();
             }
 
-        } catch (err) {
+        } catch (err: any) {
             console.error("Payment setup error:", err);
+            await deleteOrder(); // Si falla cualquier parte del setup, borramos
             sileo.error({
                 title: "Error de pasarela",
-                description: "No pudimos conectar con la pasarela de pago. Intenta más tarde."
+                description: err.message || "No pudimos conectar con la pasarela de pago. Pedido cancelado."
             });
             setIsProcessing(false);
         }
