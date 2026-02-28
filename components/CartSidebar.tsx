@@ -68,12 +68,13 @@ export function CartSidebar() {
                         <div className={`flex flex-col items-center justify-center h-full text-neutral-500 transition-opacity duration-300 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}>
                             <ShoppingBag size={40} className="mb-6 text-neutral-800" />
                             <p className="mb-6 tracking-[4px] text-[10px] font-mono">EL CARRITO ESTÁ VACÍO</p>
-                            <button
+                            <Link
+                                href="/catalogo"
                                 onClick={() => setIsOpen(false)}
-                                className="text-gold border border-gold/30 px-6 py-2 hover:bg-gold hover:text-black transition-colors uppercase tracking-[2px] text-[10px] font-bold"
+                                className="text-gold border border-gold/30 px-10 py-3 hover:bg-gold hover:text-black transition-all duration-300 uppercase tracking-[2px] text-[10px] font-bold font-mono hover:scale-105 active:scale-95 shadow-lg shadow-gold/5"
                             >
                                 Explorar Colección
-                            </button>
+                            </Link>
                         </div>
                     ) : (
                         items.map((item, idx) => (
