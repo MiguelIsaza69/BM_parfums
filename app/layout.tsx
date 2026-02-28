@@ -26,8 +26,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "BM Parfums | Avant-Garde Perfumery",
+  title: "BM parfums | Esencia de Élite",
   description: "Redefining olfactory perfection for the avant-garde.",
+  icons: {
+    icon: "https://res.cloudinary.com/dbeaem1xr/image/upload/v1771865096/WhatsApp_Image_2026-02-11_at_3.37.42_PM-removebg-preview_lz7whv.png",
+    apple: "https://res.cloudinary.com/dbeaem1xr/image/upload/v1771865096/WhatsApp_Image_2026-02-11_at_3.37.42_PM-removebg-preview_lz7whv.png",
+  }
 };
 
 export default function RootLayout({
