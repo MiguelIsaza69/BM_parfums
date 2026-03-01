@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
 export function BrandTicker() {
     const [brands, setBrands] = useState<string[]>([]);
     const [isInteracting, setIsInteracting] = useState(false);
-    const scrollRef = typeof window !== 'undefined' ? (require('react').useRef<HTMLDivElement>(null)) : { current: null };
+    const scrollRef = useRef<HTMLDivElement>(null);
 
     // Drag to scroll state
     const [isDragging, setIsDragging] = useState(false);
