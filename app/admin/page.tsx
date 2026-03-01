@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { LayoutDashboard, Users, Package, Settings, LogOut, FilePlus, RefreshCcw, Plus, Trash2, Edit, Check, X, FileText, Send, ShoppingBag } from "lucide-react";
+import { LayoutDashboard, Users, Package, Settings, LogOut, FilePlus, RefreshCcw, Plus, Trash2, Edit, Check, X, FileText, Send, ShoppingBag, Ticket } from "lucide-react";
 import { sileo } from "sileo";
 import { updateHeroSlide, updateBrand } from "../actions/config";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -277,7 +277,7 @@ export default function AdminDashboard() {
             const fetchOrders = async () => {
                 const { data, error } = await supabase
                     .from('orders')
-                    .select('*, profiles(email, full_name)')
+                    .select('*, profiles(email, full_name), coupons(code)')
                     .order('created_at', { ascending: false });
 
                 if (error) console.error("Error fetching orders:", error);
@@ -301,6 +301,11 @@ export default function AdminDashboard() {
     const [editBrandName, setEditBrandName] = useState("");
     const [editBrandLogo, setEditBrandLogo] = useState("");
     const [isSubmittingBrand, setIsSubmittingBrand] = useState(false);
+
+    const [coupons, setCoupons] = useState<any[]>([]);
+    const [newCouponCode, setNewCouponCode] = useState("");
+    const [newCouponDiscount, setNewCouponDiscount] = useState("");
+    const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
 
     useEffect(() => {
         let mounted = true;
@@ -329,6 +334,12 @@ export default function AdminDashboard() {
                 const { data, error } = await supabase.from('hero_slides').select('*').order('created_at', { ascending: false });
                 if (error) console.error("Error loading hero:", error);
                 if (mounted && data) setHeroImages(data);
+            }
+
+            if (activeSection === 'coupons') {
+                const { data, error } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
+                if (error) console.error("Error loading coupons:", error);
+                if (mounted && data) setCoupons(data);
             }
         };
 
@@ -416,12 +427,51 @@ export default function AdminDashboard() {
     const handleSaveEditBrand = async (id: string) => {
         if (!editBrandName.trim()) return addToast("Nombre vacío", "warning");
         const { error } = await supabase.from('brands').update({ name: editBrandName, logo_url: editBrandLogo }).eq('id', id);
-        if (error) addToast("Error: " + error.message, "error");
-        else {
-            setBrands(brands.map(b => b.id === id ? { ...b, name: editBrandName, logo_url: editBrandLogo } : b));
+        if (!error) {
+            addToast("Marca actualizada", "success");
+            setBrands(prev => prev.map(b => b.id === id ? { ...b, name: editBrandName, logo_url: editBrandLogo } : b));
             setEditingBrandId(null);
-            addToast("Marca actualizada.", "success");
+        } else {
+            addToast("Error al guardar marca", "error");
         }
+    };
+
+    // Coupon Operations
+    const handleAddCoupon = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newCouponCode || !newCouponDiscount) return;
+        setIsSubmittingCoupon(true);
+        const { error } = await supabase.from('coupons').insert([{
+            code: newCouponCode.toUpperCase().trim(),
+            discount_percentage: parseFloat(newCouponDiscount)
+        }]);
+        if (!error) {
+            addToast("Cupón creado", "success");
+            setNewCouponCode("");
+            setNewCouponDiscount("");
+            // Refresh
+            const { data } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
+            if (data) setCoupons(data);
+        } else {
+            addToast("Error al crear cupón", "error");
+        }
+        setIsSubmittingCoupon(false);
+    };
+
+    const handleDeleteCoupon = async (id: string) => {
+        openConfirmModal({
+            title: "¿Eliminar Cupón?",
+            message: "Esta acción no se puede deshacer.",
+            confirmText: "Eliminar",
+            isDanger: true,
+            onConfirm: async () => {
+                const { error } = await supabase.from('coupons').delete().eq('id', id);
+                if (!error) {
+                    addToast("Cupón eliminado", "success");
+                    setCoupons(prev => prev.filter(c => c.id !== id));
+                }
+            }
+        });
     };
 
     // --- PRODUCTS STATE ---
@@ -439,7 +489,9 @@ export default function AdminDashboard() {
         price: "" as string | number,
         volume_ml: "" as string | number,
         quality: "Inspiración",
-        is_active: true
+        is_active: true,
+        is_favorite: false,
+        discount_percentage: "" as string | number
     });
     const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false); // New state for form visibility
@@ -482,7 +534,7 @@ export default function AdminDashboard() {
 
     const resetProductForm = () => {
         setProductForm({
-            id: null, name: "", brand_id: "", gender_id: "", category_ids: [""], description: "", price: "", volume_ml: "", quality: "Inspiración", is_active: true
+            id: null, name: "", brand_id: "", gender_id: "", category_ids: [""], description: "", price: "", volume_ml: "", quality: "Inspiración", is_active: true, is_favorite: false, discount_percentage: ""
         });
         setImagesText("");
         setIsFormOpen(false); // Close form on reset
@@ -533,6 +585,8 @@ export default function AdminDashboard() {
                 volume_ml: Number(productForm.volume_ml) || 0,
                 quality: productForm.quality,
                 is_active: productForm.is_active,
+                is_favorite: productForm.is_favorite,
+                discount_percentage: Number(productForm.discount_percentage) || 0,
                 images: cleanImages
             };
 
@@ -596,7 +650,9 @@ export default function AdminDashboard() {
             price: p.price,
             volume_ml: p.volume_ml || "",
             quality: p.quality,
-            is_active: p.is_active ?? true
+            is_active: p.is_active ?? true,
+            is_favorite: p.is_favorite ?? false,
+            discount_percentage: p.discount_percentage || ""
         });
         // Handle images (text, array, or JSON string)
         let actualImages: string[] = [];
@@ -707,17 +763,44 @@ export default function AdminDashboard() {
                                         <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Descripción</label><textarea value={productForm.description} onChange={e => handleProductFormChange('description', e.target.value)} className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded h-32 resize-none" /></div>
                                         <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Imágenes (Una URL por línea)</label><textarea value={imagesText} onChange={(e) => setImagesText(e.target.value)} className="bg-black border border-white/20 p-3 text-xs text-white focus:border-gold outline-none font-mono rounded resize-y" rows={5} /><p className="text-[10px] text-neutral-600">Sepáralas con Enter.</p></div>
 
-                                        <div className="flex items-center gap-4 bg-black/40 border border-white/5 p-4 rounded-lg">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="flex items-center gap-4 bg-black/40 border border-white/5 p-4 rounded-lg">
+                                                <input
+                                                    type="checkbox"
+                                                    id="is_active_check"
+                                                    checked={productForm.is_active}
+                                                    onChange={e => handleProductFormChange('is_active', e.target.checked)}
+                                                    className="w-5 h-5 accent-gold cursor-pointer"
+                                                />
+                                                <label htmlFor="is_active_check" className="text-sm font-mono text-white cursor-pointer uppercase tracking-widest">
+                                                    Visible
+                                                </label>
+                                            </div>
+
+                                            <div className="flex items-center gap-4 bg-black/40 border border-white/5 p-4 rounded-lg">
+                                                <input
+                                                    type="checkbox"
+                                                    id="is_favorite_check"
+                                                    checked={productForm.is_favorite}
+                                                    onChange={e => handleProductFormChange('is_favorite', e.target.checked)}
+                                                    className="w-5 h-5 accent-gold cursor-pointer"
+                                                />
+                                                <label htmlFor="is_favorite_check" className="text-sm font-mono text-white cursor-pointer uppercase tracking-widest">
+                                                    Favorito (Más Esperados)
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-xs font-mono text-neutral-500 uppercase">Descuento (%)</label>
                                             <input
-                                                type="checkbox"
-                                                id="is_active_check"
-                                                checked={productForm.is_active}
-                                                onChange={e => handleProductFormChange('is_active', e.target.checked)}
-                                                className="w-5 h-5 accent-gold cursor-pointer"
+                                                type="number"
+                                                value={productForm.discount_percentage}
+                                                onChange={e => handleProductFormChange('discount_percentage', e.target.value)}
+                                                placeholder="Ej: 20"
+                                                className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded"
                                             />
-                                            <label htmlFor="is_active_check" className="text-sm font-mono text-white cursor-pointer uppercase tracking-widest">
-                                                Producto Visible (Activo)
-                                            </label>
+                                            <p className="text-[10px] text-neutral-600">Deja en 0 o vacío si no tiene descuento.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -757,8 +840,8 @@ export default function AdminDashboard() {
                                                 )}
                                             </div>
 
-                                            {/* Action Buttons - Moved outside the grayscale container */}
-                                            <div className={`absolute top-2 right-2 flex flex-col gap-2 z-30 transition-all duration-300 ${p.is_active === false ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0'}`}>
+                                            {/* Action Buttons - Always visible */}
+                                            <div className="absolute top-2 right-2 flex flex-col gap-2 z-30 transition-all duration-300">
                                                 <button onClick={() => handleEditProduct(p)} className="bg-white text-black p-2 rounded-full hover:bg-gold shadow-xl hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={14} /></button>
                                                 <button
                                                     onClick={async (e) => {
@@ -783,7 +866,22 @@ export default function AdminDashboard() {
                                         <div className="text-center">
                                             <div className="flex justify-center gap-1 mb-1"><span className="text-[9px] text-neutral-500 uppercase tracking-widest">{p.brands?.name || '...'}</span></div>
                                             <h3 className="text-sm font-serif text-white mb-1 truncate">{p.name}</h3>
-                                            <p className="text-gold font-mono text-xs">${p.price?.toLocaleString()}</p>
+                                            <div className="flex items-center justify-center gap-2">
+                                                {p.discount_percentage > 0 ? (
+                                                    <>
+                                                        <p className="text-neutral-500 font-mono text-[10px] line-through">${p.price?.toLocaleString()}</p>
+                                                        <p className="text-gold font-mono text-xs font-bold">${(p.price * (1 - p.discount_percentage / 100)).toLocaleString()}</p>
+                                                        <span className="bg-gold text-black text-[8px] px-1 font-bold rounded">-{p.discount_percentage}%</span>
+                                                    </>
+                                                ) : (
+                                                    <p className="text-gold font-mono text-xs">${p.price?.toLocaleString()}</p>
+                                                )}
+                                            </div>
+                                            {p.is_favorite && (
+                                                <div className="mt-2 flex justify-center">
+                                                    <span className="text-[8px] bg-white/10 text-gold border border-gold/30 px-2 py-0.5 rounded-full uppercase tracking-tighter">★ Favorito</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -943,7 +1041,14 @@ export default function AdminDashboard() {
                                                     <option value="cancelled" className="bg-black text-red-500">Cancelado</option>
                                                 </select>
                                             </td>
-                                            <td className="p-4 align-top text-gold font-bold font-mono text-base">${Number(order.total).toLocaleString('es-CO')}</td>
+                                            <td className="p-4 align-top text-gold font-bold font-mono text-base whitespace-nowrap">
+                                                <div className="flex flex-col">
+                                                    <span>${Number(order.total).toLocaleString('es-CO')}</span>
+                                                    {order.coupons && (
+                                                        <span className="text-[9px] text-neutral-500 font-mono uppercase tracking-tighter">CUPÓN: {order.coupons.code}</span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="p-4 align-top">
                                                 {order.status === 'completed' || order.status === 'cancelled' ? (
                                                     <div className="text-neutral-500 italic text-sm max-w-[200px] wrap-break-word">{order.description || "Sin notas"}</div>
@@ -1241,6 +1346,87 @@ export default function AdminDashboard() {
                         </div>
                     </div>
                 );
+            case 'coupons':
+                return (
+                    <div className="space-y-8">
+                        <div>
+                            <h2 className="text-3xl font-serif text-white mb-6 border-b border-white/10 pb-4">Gestión de Cupones</h2>
+                            <form onSubmit={handleAddCoupon} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-neutral-900 p-6 rounded-lg border border-white/20">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Código del Cupón</label>
+                                    <input
+                                        value={newCouponCode}
+                                        onChange={e => setNewCouponCode(e.target.value.toUpperCase())}
+                                        placeholder="EJ: VERANO20"
+                                        className="w-full bg-black border border-white/20 p-3 text-white text-sm font-mono focus:border-gold outline-none rounded"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Descuento (%)</label>
+                                    <input
+                                        type="number"
+                                        value={newCouponDiscount}
+                                        onChange={e => setNewCouponDiscount(e.target.value)}
+                                        placeholder="15"
+                                        className="w-full bg-black border border-white/20 p-3 text-white text-sm font-mono focus:border-gold outline-none rounded"
+                                    />
+                                </div>
+                                <div className="flex items-end">
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmittingCoupon}
+                                        className="w-full bg-gold py-3 text-black font-bold uppercase text-xs hover:bg-white transition-all active:scale-95 disabled:opacity-50"
+                                    >
+                                        {isSubmittingCoupon ? "Creando..." : "Crear Cupón"}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div className="bg-neutral-900 rounded-lg border border-white/10 overflow-hidden">
+                            <table className="w-full text-left">
+                                <thead className="bg-white/5 border-b border-white/10">
+                                    <tr>
+                                        <th className="p-4 text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Código</th>
+                                        <th className="p-4 text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Descuento</th>
+                                        <th className="p-4 text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Fecha Creación</th>
+                                        <th className="p-4 text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {coupons.map(coupon => (
+                                        <tr key={coupon.id} className="hover:bg-white/5 transition-colors group">
+                                            <td className="p-4">
+                                                <span className="bg-gold/10 text-gold px-3 py-1 rounded font-mono text-sm border border-gold/20 tracking-wider">
+                                                    {coupon.code}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-white font-mono">{coupon.discount_percentage}%</td>
+                                            <td className="p-4 text-neutral-500 text-xs font-mono">
+                                                {new Date(coupon.created_at).toLocaleDateString()}
+                                            </td>
+                                            <td className="p-4">
+                                                <button
+                                                    onClick={() => handleDeleteCoupon(coupon.id)}
+                                                    className="text-neutral-600 hover:text-red-500 transition-colors p-2"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {coupons.length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="p-12 text-center text-neutral-500 italic font-serif">
+                                                No hay cupones activos.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                );
             default:
                 return (
                     <div>
@@ -1318,6 +1504,7 @@ export default function AdminDashboard() {
                         { id: 'users', label: 'Usuarios', icon: Users },
                         { id: 'orders', label: 'Pedidos', icon: ShoppingBag },
                         { id: 'promotions', label: 'Promociones', icon: Send },
+                        { id: 'coupons', label: 'Cupones', icon: Ticket },
                         { id: 'config', label: 'Configuración', icon: Settings },
                     ].map(sec => (
                         <button

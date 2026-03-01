@@ -328,6 +328,12 @@ function CatalogContent() {
                                             className="object-contain w-full h-full group-hover:scale-110 transition-transform duration-500"
                                         />
 
+                                        {product.discount_percentage > 0 && (
+                                            <div className="absolute top-0 right-0 bg-gold text-black font-mono text-[10px] font-bold px-3 py-1 z-20 shadow-lg">
+                                                -{product.discount_percentage}% OFF
+                                            </div>
+                                        )}
+
                                         {/* Hover Overlay - Desktop Only */}
                                         <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center text-center p-6 opacity-0 xl:group-hover:opacity-100 transition-all duration-300 translate-y-4 xl:group-hover:translate-y-0 z-10 hidden xl:flex">
                                             <button
@@ -352,7 +358,20 @@ function CatalogContent() {
                                     >
                                         <p className="text-[10px] text-muted mb-1 font-mono tracking-widest uppercase">{product.brandName}</p>
                                         <h3 className="text-lg font-serif mb-2 line-clamp-1">{product.name}</h3>
-                                        <p className="text-gold font-mono text-sm">${product.price.toLocaleString('es-CO')}</p>
+                                        <div className="flex flex-col items-center">
+                                            {product.discount_percentage > 0 ? (
+                                                <>
+                                                    <p className="text-gold font-mono text-sm font-bold">
+                                                        ${Number(product.price * (1 - product.discount_percentage / 100)).toLocaleString('es-CO')}
+                                                    </p>
+                                                    <p className="text-neutral-500 font-mono text-[10px] line-through mt-0.5 opacity-60">
+                                                        ${product.price.toLocaleString('es-CO')}
+                                                    </p>
+                                                </>
+                                            ) : (
+                                                <p className="text-gold font-mono text-sm">${product.price.toLocaleString('es-CO')}</p>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Mobile/Tablet Permanent Button */}

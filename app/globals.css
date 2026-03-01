@@ -116,17 +116,20 @@ body {
 }
 
 .marquee-fast {
-  animation-duration: 60s !important;
+  animation-duration: 25s !important;
 }
 
 .marquee-slow {
-  animation-duration: 400s !important;
+  animation-duration: 80s !important;
 }
 
-/* Pause animation on hover of the container */
-.hover-pause:hover .animate-marquee,
-.hover-pause:hover .animate-marquee2 {
-  animation-play-state: paused;
+/* Only pause on desktop where hover property is available */
+@media (hover: hover) {
+
+  .hover-pause:hover .animate-marquee,
+  .hover-pause:hover .animate-marquee2 {
+    animation-play-state: paused;
+  }
 }
 
 .hide-scrollbar {

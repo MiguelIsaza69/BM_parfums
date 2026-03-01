@@ -152,9 +152,27 @@ export default function ProductDetailsPage() {
                             {product.name}
                         </h1>
 
-                        <p className="text-2xl font-mono text-white/90 mb-8">
-                            ${Number(product.price).toLocaleString('es-CO')}
-                        </p>
+                        <div className="flex flex-col mb-8">
+                            {product.discount_percentage > 0 ? (
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-3">
+                                        <p className="text-3xl font-mono text-gold font-bold">
+                                            ${Number(product.price * (1 - product.discount_percentage / 100)).toLocaleString('es-CO')}
+                                        </p>
+                                        <span className="bg-gold text-black text-xs font-bold px-2 py-1 rounded-sm">
+                                            {product.discount_percentage}% OFF
+                                        </span>
+                                    </div>
+                                    <p className="text-xl font-mono text-neutral-500 line-through">
+                                        ${Number(product.price).toLocaleString('es-CO')}
+                                    </p>
+                                </div>
+                            ) : (
+                                <p className="text-3xl font-mono text-white/90">
+                                    ${Number(product.price).toLocaleString('es-CO')}
+                                </p>
+                            )}
+                        </div>
 
                         <div className="bg-white/5 border border-white/10 p-6 mb-8 backdrop-blur-sm">
                             <h3 className="text-xs font-mono uppercase text-neutral-400 mb-2 tracking-widest">Descripción</h3>

@@ -78,10 +78,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 }
             }
 
+            const hasDiscount = product.discount_percentage > 0;
+            const finalPrice = hasDiscount
+                ? Number(product.price) * (1 - product.discount_percentage / 100)
+                : Number(product.price);
+
             const newItem: CartItem = {
                 id: product.id,
                 name: product.name,
-                price: Number(product.price),
+                price: finalPrice,
                 image: mainImage,
                 brand: product.brands?.name || product.brandName || "BM", // Handle both detailed and flattened structures
                 quantity,

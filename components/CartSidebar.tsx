@@ -90,7 +90,7 @@ export function CartSidebar() {
                                         src={item.image}
                                         alt={item.name}
                                         fill
-                                        className="object-contain p-2 mix-blend-multiply"
+                                        className="object-contain p-1 mix-blend-multiply"
                                         sizes="80px"
                                     />
                                 </div>

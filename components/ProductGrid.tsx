@@ -16,6 +16,8 @@ export function ProductGrid() {
             const { data } = await supabase
                 .from('products')
                 .select('*, brands(name)')
+                .eq('is_active', true)
+                .eq('is_favorite', true)
                 .order('created_at', { ascending: false })
                 .limit(8);
 
@@ -56,6 +58,11 @@ export function ProductGrid() {
                     } catch (e) { console.error("Error parsing product image:", e); }
                     if (!mainImage || mainImage.length < 5) mainImage = "/placeholder.jpg";
 
+                    const hasDiscount = product.discount_percentage > 0;
+                    const discountedPrice = hasDiscount
+                        ? product.price * (1 - product.discount_percentage / 100)
+                        : product.price;
+
                     return (
                         <div
                             key={product.id}
@@ -69,6 +76,12 @@ export function ProductGrid() {
                                     fill
                                     className="object-contain w-full h-full transition-all duration-1000 ease-out xl:group-hover:scale-110 xl:group-hover:rotate-1"
                                 />
+
+                                {hasDiscount && (
+                                    <div className="absolute top-0 right-0 bg-gold text-black font-mono text-[10px] font-bold px-3 py-1 z-20 shadow-lg">
+                                        -{product.discount_percentage}% OFF
+                                    </div>
+                                )}
 
                                 {/* Hover Overlay - Desktop Only (XL screens > 1280px) */}
                                 <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center text-center p-8 opacity-0 xl:group-hover:opacity-100 transition-all duration-500 ease-in-out backdrop-blur-sm z-10 invisible xl:group-hover:visible translate-y-2 xl:group-hover:translate-y-0 max-xl:hidden">
@@ -96,10 +109,17 @@ export function ProductGrid() {
                             <Link href={`/product/${product.id}`} className="flex flex-col items-center text-center transition-all duration-500 xl:group-hover:translate-y-[-4px]">
                                 <p className="text-[9px] text-gold/60 mb-2 font-mono tracking-[4px] uppercase">{product.brands?.name || "BM PARFUMS"}</p>
                                 <h3 className="text-base font-serif mb-3 truncate w-full tracking-tight text-white/90 group-hover:text-white transition-colors">{product.name}</h3>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-px w-4 bg-white/10 group-hover:w-8 group-hover:bg-gold/30 transition-all duration-500" />
-                                    <p className="text-gold font-mono text-xs font-bold tracking-widest">${Number(product.price).toLocaleString('es-CO')}</p>
-                                    <div className="h-px w-4 bg-white/10 group-hover:w-8 group-hover:bg-gold/30 transition-all duration-500" />
+                                <div className="flex flex-col items-center">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-px w-4 bg-white/10 group-hover:w-8 group-hover:bg-gold/30 transition-all duration-500" />
+                                        <p className="text-gold font-mono text-xs font-bold tracking-widest">${Number(discountedPrice).toLocaleString('es-CO')}</p>
+                                        <div className="h-px w-4 bg-white/10 group-hover:w-8 group-hover:bg-gold/30 transition-all duration-500" />
+                                    </div>
+                                    {hasDiscount && (
+                                        <p className="text-neutral-500 font-mono text-[10px] line-through mt-1 opacity-60">
+                                            ${Number(product.price).toLocaleString('es-CO')}
+                                        </p>
+                                    )}
                                 </div>
                             </Link>
 

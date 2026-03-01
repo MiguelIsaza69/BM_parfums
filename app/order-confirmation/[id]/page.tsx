@@ -160,9 +160,11 @@ export default function OrderConfirmationPage() {
                             <Link href="/catalogo" className="flex items-center gap-2 px-6 py-3 border border-white/20 hover:bg-white/10 rounded transition-colors text-sm font-mono uppercase tracking-widest text-neutral-300">
                                 <ArrowLeft size={16} /> Volver a la Tienda
                             </Link>
-                            <Link href="/dashboard" className="flex items-center gap-2 px-6 py-3 border border-white/20 hover:bg-white/10 rounded transition-colors text-sm font-mono uppercase tracking-widest text-neutral-300">
-                                <ShoppingBag size={16} /> Mis Pedidos
-                            </Link>
+                            {order.user_id && (
+                                <Link href="/dashboard" className="flex items-center gap-2 px-6 py-3 border border-white/20 hover:bg-white/10 rounded transition-colors text-sm font-mono uppercase tracking-widest text-neutral-300">
+                                    <ShoppingBag size={16} /> Mis Pedidos
+                                </Link>
+                            )}
                             <div className="flex-1"></div>
                             <button
                                 onClick={handleSendEmail}

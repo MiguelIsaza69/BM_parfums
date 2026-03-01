@@ -10,6 +10,8 @@ import { ArrowLeft, CreditCard } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { departments, colombiaData } from "@/lib/colombia-data";
 import { sileo } from "sileo";
+import { GuestInviteModal } from "@/components/GuestInviteModal";
+import { AuthSidebar } from "@/components/AuthSidebar";
 
 export default function CheckoutPage() {
     const { items, total, clearCart } = useCart();
@@ -32,6 +34,20 @@ export default function CheckoutPage() {
     const [acceptanceData, setAcceptanceData] = useState<{ token: string; permalink: string } | null>(null);
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [paymentMethodSelection, setPaymentMethodSelection] = useState<"widget" | "bancolombia">("widget");
+
+    // Coupon State
+    const [couponInput, setCouponInput] = useState("");
+    const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+    const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+    const [discountAmount, setDiscountAmount] = useState(0);
+
+    const finalTotal = total - discountAmount;
+
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [showGuestInvite, setShowGuestInvite] = useState(false);
+    const [isAuthSidebarOpen, setIsAuthSidebarOpen] = useState(false);
+    const [isGuestContinuing, setIsGuestContinuing] = useState(false);
+    const [currentUser, setCurrentUser] = useState<any>(null);
 
     // Derived state for cities based on selected department in form
     const availableCities = formData.department ? (colombiaData as any)[formData.department] || [] : [];
@@ -74,6 +90,7 @@ export default function CheckoutPage() {
                     fillAddressForm(defaultAddr);
                 }
             }
+            setCurrentUser(user);
         };
         loadUserData();
 
@@ -94,6 +111,18 @@ export default function CheckoutPage() {
             }
         };
         fetchWompiMerchant();
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (session?.user) {
+                setCurrentUser(session.user);
+                loadUserData();
+            } else {
+                setCurrentUser(null);
+            }
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
     }, []);
 
     const fillAddressForm = (addr: any) => {
@@ -138,13 +167,54 @@ export default function CheckoutPage() {
         }
     };
 
-    const [isProcessing, setIsProcessing] = useState(false);
+    const handleApplyCoupon = async () => {
+        if (!couponInput.trim()) return;
+        setIsValidatingCoupon(true);
+        try {
+            const { data, error } = await supabase
+                .from('coupons')
+                .select('*')
+                .eq('code', couponInput.toUpperCase().trim())
+                .eq('is_active', true)
+                .maybeSingle();
+
+            if (error) throw error;
+
+            if (data) {
+                const discount = (total * data.discount_percentage) / 100;
+                setDiscountAmount(discount);
+                setAppliedCoupon(data);
+                sileo.success({
+                    title: "Cupón aplicado",
+                    description: `Has ahorrado $${discount.toLocaleString('es-CO')} (${data.discount_percentage}%)`
+                });
+            } else {
+                sileo.error({
+                    title: "Cupón inválido",
+                    description: "El código ingresado no es válido o ha expirado."
+                });
+            }
+        } catch (err) {
+            console.error("Error validating coupon:", err);
+            sileo.error({ title: "Error", description: "No se pudo validar el cupón." });
+        } finally {
+            setIsValidatingCoupon(false);
+        }
+    };
+
 
     const handlePayment = async () => {
         setIsProcessing(true);
         console.log("Iniciando proceso de pago...", formData);
 
-        // 0. Validations
+        // 0. Guest Check (Invite to Register)
+        if (!currentUser && !isGuestContinuing) {
+            setShowGuestInvite(true);
+            setIsProcessing(false);
+            return;
+        }
+
+        // 1. Validations
         const missingFields = [];
         if (!formData.name) missingFields.push("Nombre Completo");
         if (!formData.email) missingFields.push("Email");
@@ -182,11 +252,12 @@ export default function CheckoutPage() {
 
         // 2 Create Order in 'pending' status
         const { data: order, error } = await supabase.from('orders').insert([{
-            user_id: user?.id || null,
-            total: total,
+            user_id: currentUser?.id || null,
+            total: finalTotal,
             status: 'pending',
             shipping_info: formData,
-            items: items
+            items: items,
+            coupon_id: appliedCoupon?.id || null
         }]).select().single();
 
         if (error) {
@@ -205,7 +276,7 @@ export default function CheckoutPage() {
         };
 
         // 3. Prepare Wompi Data (EXACT INTEGERS ONLY)
-        const amountInCents = Math.round(total * 100);
+        const amountInCents = Math.round(finalTotal * 100);
         const reference = order.id;
         const currency = 'COP';
 
@@ -730,18 +801,65 @@ export default function CheckoutPage() {
                                 ))}
                             </div>
 
-                            <div className="space-y-2 text-sm font-mono text-neutral-400 border-t border-white/10 pt-4">
+                            <div className="space-y-4 text-sm font-mono text-neutral-400 border-t border-white/10 pt-4">
                                 <div className="flex justify-between">
                                     <span>Subtotal</span>
                                     <span>${total.toLocaleString('es-CO')}</span>
                                 </div>
+
+                                {appliedCoupon && (
+                                    <div className="flex justify-between text-green-500 animate-in fade-in slide-in-from-right-2 duration-300">
+                                        <span>Descuento ({appliedCoupon.code})</span>
+                                        <span>-${discountAmount.toLocaleString('es-CO')}</span>
+                                    </div>
+                                )}
+
+                                <div className="pt-2">
+                                    {!appliedCoupon ? (
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder="CÓDIGO DE DESCUENTO"
+                                                value={couponInput}
+                                                onChange={e => setCouponInput(e.target.value)}
+                                                className="flex-1 bg-black border border-white/10 p-2 text-[10px] focus:border-gold outline-none uppercase"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleApplyCoupon}
+                                                disabled={isValidatingCoupon || !couponInput}
+                                                className="bg-neutral-800 px-4 py-2 text-[10px] font-bold hover:bg-white hover:text-black transition-all disabled:opacity-50"
+                                            >
+                                                {isValidatingCoupon ? "..." : "APLICAR"}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex justify-between items-center bg-gold/5 border border-gold/20 p-2 rounded">
+                                            <span className="text-[10px] text-gold uppercase tracking-tighter">Cupón {appliedCoupon.code} Activado</span>
+                                            <button
+                                                onClick={() => { setAppliedCoupon(null); setDiscountAmount(0); setCouponInput(""); }}
+                                                className="text-[10px] text-neutral-500 hover:text-white"
+                                            >
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="flex justify-between">
                                     <span>Envío</span>
-                                    <span>Calculado en el siguiente paso</span>
+                                    <span>Gratis</span>
                                 </div>
                                 <div className="flex justify-between text-white text-lg font-bold border-t border-white/10 pt-4 mt-2">
                                     <span>Total</span>
-                                    <span>${total.toLocaleString('es-CO')}</span>
+                                    <div className="flex flex-col items-end">
+                                        <span>${finalTotal.toLocaleString('es-CO')}</span>
+                                        {appliedCoupon && (
+                                            <span className="text-[10px] text-neutral-500 line-through font-normal">
+                                                ${total.toLocaleString('es-CO')}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -750,6 +868,32 @@ export default function CheckoutPage() {
             </div>
 
             <Footer />
+
+            <GuestInviteModal
+                isOpen={showGuestInvite}
+                onClose={() => setShowGuestInvite(false)}
+                onRegister={() => {
+                    setShowGuestInvite(false);
+                    setIsAuthSidebarOpen(true);
+                }}
+                onContinueAsGuest={() => {
+                    setShowGuestInvite(false);
+                    setIsGuestContinuing(true);
+                    // Trigger payment again smoothly but wait for re-render if needed
+                    // Actually, the user can just click "Proceder al Pago" again
+                }}
+            />
+
+            <AuthSidebar
+                isOpen={isAuthSidebarOpen}
+                onClose={() => setIsAuthSidebarOpen(false)}
+                initialView="register"
+                initialData={{
+                    email: formData.email,
+                    name: formData.name,
+                    phone: formData.phone
+                }}
+            />
         </main>
     );
 }

@@ -7,16 +7,33 @@ import { useRouter } from "next/navigation";
 import { sileo } from "sileo";
 import { RegisterForm } from "./RegisterForm";
 import { Input } from "./Input";
+import { AppAlert } from "./AppAlert";
 
 type AuthView = "login" | "register" | "forgot-password";
 
 interface AuthSidebarProps {
     isOpen: boolean;
     onClose: () => void;
+    initialView?: AuthView;
+    initialData?: {
+        email?: string;
+        name?: string;
+        phone?: string;
+    };
 }
 
-export function AuthSidebar({ isOpen, onClose }: AuthSidebarProps) {
-    const [view, setView] = useState<AuthView>("login");
+export function AuthSidebar({ isOpen, onClose, initialView = "login", initialData }: AuthSidebarProps) {
+    const [view, setView] = useState<AuthView>(initialView);
+    const [alert, setAlert] = useState<{ isOpen: boolean; title: string; message: string; type: "error" | "warning" | "success" }>({
+        isOpen: false,
+        title: "",
+        message: "",
+        type: "error"
+    });
+
+    const showAlert = (title: string, message: string, type: "error" | "warning" | "success" = "error") => {
+        setAlert({ isOpen: true, title, message, type });
+    };
 
     if (!isOpen) return null;
 
@@ -40,16 +57,31 @@ export function AuthSidebar({ isOpen, onClose }: AuthSidebarProps) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                    {view === "login" && <LoginForm setView={setView} onClose={onClose} />}
-                    {view === "register" && <RegisterForm setView={setView} />}
-                    {view === "forgot-password" && <ForgotPasswordForm setView={setView} />}
+                    {view === "login" && <LoginForm setView={setView} onClose={onClose} onAlert={showAlert} />}
+                    {view === "register" && (
+                        <RegisterForm
+                            setView={setView}
+                            initialEmail={initialData?.email}
+                            initialFullName={initialData?.name}
+                            initialPhone={initialData?.phone}
+                        />
+                    )}
+                    {view === "forgot-password" && <ForgotPasswordForm setView={setView} onAlert={showAlert} />}
                 </div>
+
+                <AppAlert
+                    isOpen={alert.isOpen}
+                    onClose={() => setAlert(prev => ({ ...prev, isOpen: false }))}
+                    title={alert.title}
+                    message={alert.message}
+                    type={alert.type}
+                />
             </div>
         </>
     );
 }
 
-function LoginForm({ setView, onClose }: { setView: (v: AuthView) => void, onClose: () => void }) {
+function LoginForm({ setView, onClose, onAlert }: { setView: (v: AuthView) => void, onClose: () => void, onAlert: (t: string, m: string, ty?: any) => void }) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
@@ -88,12 +120,15 @@ function LoginForm({ setView, onClose }: { setView: (v: AuthView) => void, onClo
 
         } catch (err: any) {
             console.error("Login Error:", err);
+
+            let errorMessage = err.message || "Credenciales incorrectas";
+            if (err.status === 429 || (err.message && (err.message.includes("429") || err.message.includes("Too many requests")))) {
+                errorMessage = "Has intentado iniciar sesión demasiadas veces seguidas. Por seguridad, por favor espera unos minutos antes de intentar de nuevo.";
+            }
+
             // Ignore AbortError if it happens during navigation
             if (err.name !== 'AbortError') {
-                sileo.error({
-                    title: "Error al iniciar sesión",
-                    description: err.message || "Credenciales incorrectas"
-                });
+                onAlert("ERROR DE ACCESO", errorMessage, "error");
                 setLoading(false);
             }
         }
@@ -134,7 +169,7 @@ function LoginForm({ setView, onClose }: { setView: (v: AuthView) => void, onClo
 }
 
 
-function ForgotPasswordForm({ setView }: { setView: (v: AuthView) => void }) {
+function ForgotPasswordForm({ setView, onAlert }: { setView: (v: AuthView) => void, onAlert: (t: string, m: string, ty?: any) => void }) {
     const [email, setEmail] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -149,10 +184,14 @@ function ForgotPasswordForm({ setView }: { setView: (v: AuthView) => void }) {
             });
             setView("login");
         } catch (error: any) {
-            sileo.error({
-                title: "Error de recuperación",
-                description: error.message
-            });
+            console.error("Reset Password Error:", error);
+
+            let errorMessage = error.message;
+            if (error.status === 429 || (error.message && (error.message.includes("429") || error.message.includes("Too many requests")))) {
+                errorMessage = "Has solicitado demasiados correos de recuperación. Por seguridad, por favor espera unos minutos antes de intentar de nuevo.";
+            }
+
+            onAlert("ERROR DE RECUPERACIÓN", errorMessage, "error");
         } finally {
             setLoading(false);
         }

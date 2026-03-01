@@ -148,7 +148,7 @@ export function Header() {
                     <img
                         src="https://res.cloudinary.com/dbeaem1xr/image/upload/v1771865096/WhatsApp_Image_2026-02-11_at_3.37.42_PM-removebg-preview_lz7whv.png"
                         alt="BM Parfums"
-                        className="h-24 w-auto object-contain"
+                        className="h-16 md:h-24 w-auto object-contain"
                     />
                 </Link>
 
@@ -340,6 +340,14 @@ export function Header() {
 
                 {isMobileMenuOpen && (
                     <div className="absolute top-full left-0 w-full bg-black/95 border-b border-white/10 p-8 flex flex-col gap-6 nav:hidden glass-panel pointer-events-auto">
+                        <button
+                            onClick={() => { handleUserClick(); setIsMobileMenuOpen(false); }}
+                            className="text-lg font-mono uppercase tracking-[3px] text-white hover:text-gold text-left flex items-center gap-3 border-b border-white/10 pb-4 mb-2"
+                        >
+                            <User size={20} className={user ? 'text-gold' : 'text-neutral-400'} />
+                            <span className="font-bold">{user ? "Mi Perfil" : "Iniciar Sesión"}</span>
+                        </button>
+
                         {isAdmin && (
                             <Link
                                 href="/admin"
@@ -364,13 +372,6 @@ export function Header() {
                                 {item.name}
                             </Link>
                         ))}
-                        <button
-                            onClick={() => { handleUserClick(); setIsMobileMenuOpen(false); }}
-                            className="text-lg font-mono uppercase tracking-widest hover:text-gold text-left flex items-center gap-2"
-                        >
-                            <User size={18} className={user ? 'text-gold' : ''} />
-                            {user ? "Mi Cuenta" : "Iniciar Sesión"}
-                        </button>
                     </div>
                 )}
             </header>
