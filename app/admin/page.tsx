@@ -40,12 +40,49 @@ export default function AdminDashboard() {
     };
 
     const handleUpdateOrderStatus = async (id: string, newStatus: string) => {
-        const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', id);
-        if (error) {
+        try {
+            // 1. Fetch current order to see items and deduction status
+            const { data: order, error: fetchError } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (fetchError || !order) throw new Error("No se pudo obtener el pedido");
+
+            // 2. If status becomes 'completed' and not already deducted, do it now
+            if (newStatus === 'completed' && !order.stock_deducted) {
+                const items = order.items || [];
+                for (const item of items) {
+                    const { data: product } = await supabase
+                        .from('products')
+                        .select('stock')
+                        .eq('id', item.id)
+                        .single();
+
+                    if (product) {
+                        const newStock = Math.max(0, (product.stock || 0) - item.quantity);
+                        const updateData: any = { stock: newStock };
+                        if (newStock <= 0) updateData.is_active = false;
+
+                        await supabase.from('products').update(updateData).eq('id', item.id);
+                    }
+                }
+                // Mark as deducted in DB
+                await supabase.from('orders').update({ stock_deducted: true }).eq('id', id);
+            }
+
+            // 3. Update the status
+            const { error: updateError } = await supabase.from('orders').update({ status: newStatus }).eq('id', id);
+
+            if (updateError) throw updateError;
+
+            setOrdersList(prev => prev.map(o => o.id === id ? { ...o, status: newStatus, stock_deducted: newStatus === 'completed' ? true : o.stock_deducted } : o));
+            addToast("Estado actualizado correctamente", "success");
+
+        } catch (error: any) {
+            console.error("Error updating order status:", error);
             addToast("Error: " + error.message, "error");
-        } else {
-            setOrdersList(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
-            addToast("Estado actualizado", "success");
         }
     };
 
@@ -479,6 +516,7 @@ export default function AdminDashboard() {
     const [categories, setCategories] = useState<any[]>([]);
     const [genders, setGenders] = useState<any[]>([]);
     const [imagesText, setImagesText] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
     const [productForm, setProductForm] = useState({
         id: null as string | null,
         name: "",
@@ -491,7 +529,8 @@ export default function AdminDashboard() {
         quality: "Inspiración",
         is_active: true,
         is_favorite: false,
-        discount_percentage: "" as string | number
+        discount_percentage: "" as string | number,
+        stock: 1 // Default to 1 for new products
     });
     const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false); // New state for form visibility
@@ -501,7 +540,10 @@ export default function AdminDashboard() {
         if (activeSection === 'products') {
             const fetchProducts = async () => {
                 console.log("Fetching products...");
-                const { data, error } = await supabase.from('products').select('*, brands(name), genders(name)').order('created_at', { ascending: false });
+                const { data, error } = await supabase.from('products')
+                    .select('*, brands(name), genders(name)')
+                    .order('is_favorite', { ascending: false })
+                    .order('created_at', { ascending: false });
 
                 if (error) {
                     console.error("Error fetching products:", error);
@@ -534,7 +576,7 @@ export default function AdminDashboard() {
 
     const resetProductForm = () => {
         setProductForm({
-            id: null, name: "", brand_id: "", gender_id: "", category_ids: [""], description: "", price: "", volume_ml: "", quality: "Inspiración", is_active: true, is_favorite: false, discount_percentage: ""
+            id: null, name: "", brand_id: "", gender_id: "", category_ids: [""], description: "", price: "", volume_ml: "", quality: "Inspiración", is_active: true, is_favorite: false, discount_percentage: "", stock: 1
         });
         setImagesText("");
         setIsFormOpen(false); // Close form on reset
@@ -547,15 +589,17 @@ export default function AdminDashboard() {
         addToast("Guardando...", "info");
 
         try {
-            const rawLines = imagesText.split(/\r?\n/);
             const cleanImages: string[] = [];
-            for (const line of rawLines) {
-                const trimmed = line.trim().replace(/^["']|["']$/g, "");
-                if (!trimmed) continue;
+            const trimmedImage = imagesText.trim().replace(/^["']|["']$/g, "");
+            if (trimmedImage) {
                 try {
-                    const urlObj = new URL(trimmed);
+                    const urlObj = new URL(trimmedImage);
                     cleanImages.push(urlObj.href);
-                } catch (e) { }
+                } catch (e) {
+                    // Fallback to whatever user typed if URL fails? 
+                    // Actually, let's just push it if it looks like a URL or starts with /
+                    if (trimmedImage.length > 5) cleanImages.push(trimmedImage);
+                }
             }
             const cleanDesc = (productForm.description || "").normalize('NFC').replace(/\u0000/g, "").trim();
 
@@ -587,6 +631,7 @@ export default function AdminDashboard() {
                 is_active: productForm.is_active,
                 is_favorite: productForm.is_favorite,
                 discount_percentage: Number(productForm.discount_percentage) || 0,
+                stock: Number(productForm.stock) || 0,
                 images: cleanImages
             };
 
@@ -652,7 +697,8 @@ export default function AdminDashboard() {
             quality: p.quality,
             is_active: p.is_active ?? true,
             is_favorite: p.is_favorite ?? false,
-            discount_percentage: p.discount_percentage || ""
+            discount_percentage: p.discount_percentage || "",
+            stock: p.stock ?? 0
         });
         // Handle images (text, array, or JSON string)
         let actualImages: string[] = [];
@@ -662,24 +708,28 @@ export default function AdminDashboard() {
                 actualImages = p.images;
             } else if (typeof p.images === 'string') {
                 const trimmed = p.images.trim();
-                // Check if it's a JSON array string
-                if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-                    const parsed = JSON.parse(trimmed);
-                    if (Array.isArray(parsed)) actualImages = parsed;
+                if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+                    try {
+                        const parsed = JSON.parse(trimmed);
+                        if (Array.isArray(parsed)) actualImages = parsed;
+                        else if (typeof parsed === 'string') actualImages = [parsed];
+                        else if (parsed.url) actualImages = [parsed.url];
+                        else if (parsed.image) actualImages = [parsed.image];
+                    } catch (e) {
+                        actualImages = trimmed.split(',');
+                    }
                 } else {
-                    // Fallback to comma-separated
                     actualImages = trimmed.split(',');
                 }
             }
         } catch (e) {
             console.error("Error parsing images for edit:", e);
-            // Last resort fallback
             if (typeof p.images === 'string') actualImages = p.images.split(',');
         }
 
         // Clean up URLs
         actualImages = actualImages
-            .map(img => img.trim().replace(/^"|"$/g, '').replace(/^'|'$/g, ''))
+            .map(img => img.trim().replace(/^['"\[{]+|['"\]}]+$/g, ''))
             .filter(img => img.length > 0);
 
         setImagesText(actualImages.join('\n'));
@@ -725,7 +775,24 @@ export default function AdminDashboard() {
                     <div>
                         <div className="flex justify-between items-end mb-8 border-b border-white/10 pb-6">
                             <h2 className="text-3xl font-serif text-white">Gestión de Productos</h2>
-                            <div className="flex gap-4">
+                            <div className="flex gap-4 items-center">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por nombre o marca..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="bg-black/50 border border-white/10 px-4 py-2 text-xs font-mono text-white focus:border-gold outline-none rounded min-w-[250px]"
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            onClick={() => setSearchQuery("")}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    )}
+                                </div>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -761,7 +828,30 @@ export default function AdminDashboard() {
                                     </div>
                                     <div className="space-y-4">
                                         <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Descripción</label><textarea value={productForm.description} onChange={e => handleProductFormChange('description', e.target.value)} className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded h-32 resize-none" /></div>
-                                        <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Imágenes (Una URL por línea)</label><textarea value={imagesText} onChange={(e) => setImagesText(e.target.value)} className="bg-black border border-white/20 p-3 text-xs text-white focus:border-gold outline-none font-mono rounded resize-y" rows={5} /><p className="text-[10px] text-neutral-600">Sepáralas con Enter.</p></div>
+                                        <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Imagen del Producto (URL)</label><input type="text" value={imagesText} onChange={(e) => setImagesText(e.target.value)} placeholder="https://ejemplo.com/foto.jpg" className="bg-black border border-white/20 p-3 text-xs text-white focus:border-gold outline-none font-mono rounded" /></div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs font-mono text-neutral-500 uppercase">Stock Disponible</label>
+                                                <input
+                                                    type="number"
+                                                    value={productForm.stock}
+                                                    onChange={e => handleProductFormChange('stock', e.target.value)}
+                                                    className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded"
+                                                    min="0"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs font-mono text-neutral-500 uppercase">Descuento (%)</label>
+                                                <input
+                                                    type="number"
+                                                    value={productForm.discount_percentage}
+                                                    onChange={e => handleProductFormChange('discount_percentage', e.target.value)}
+                                                    placeholder="Ej: 20"
+                                                    className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded"
+                                                />
+                                            </div>
+                                        </div>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="flex items-center gap-4 bg-black/40 border border-white/5 p-4 rounded-lg">
@@ -790,37 +880,42 @@ export default function AdminDashboard() {
                                                 </label>
                                             </div>
                                         </div>
-
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-xs font-mono text-neutral-500 uppercase">Descuento (%)</label>
-                                            <input
-                                                type="number"
-                                                value={productForm.discount_percentage}
-                                                onChange={e => handleProductFormChange('discount_percentage', e.target.value)}
-                                                placeholder="Ej: 20"
-                                                className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded"
-                                            />
-                                            <p className="text-[10px] text-neutral-600">Deja en 0 o vacío si no tiene descuento.</p>
-                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex justify-end"><button type="submit" disabled={isSubmittingProduct} className="bg-gold text-black uppercase font-bold text-xs py-3 px-8 hover:bg-white transition-colors disabled:opacity-50 flex items-center gap-2">{isSubmittingProduct ? "Guardando..." : (productForm.id ? "Actualizar" : "Crear")} <Plus size={16} /></button></div>
+                                <div className="flex justify-end pt-4 border-t border-white/10 mt-6 md:mt-0">
+                                    <button type="submit" disabled={isSubmittingProduct} className="bg-gold text-black uppercase font-bold text-xs py-3 px-8 hover:bg-white transition-colors disabled:opacity-50 flex items-center gap-2">
+                                        {isSubmittingProduct ? "Guardando..." : (productForm.id ? "Actualizar Producto" : "Crear Producto")}
+                                        <Plus size={16} />
+                                    </button>
+                                </div>
                             </form>
                         )}
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-6">
-                            {products.map(p => {
+
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-6">
+                            {products.filter(p => {
+                                const search = searchQuery.toLowerCase().trim();
+                                if (!search) return true;
+                                const nameMatch = p.name?.toLowerCase().includes(search);
+                                const brandMatch = p.brands?.name?.toLowerCase().includes(search);
+                                return nameMatch || brandMatch;
+                            }).map(p => {
                                 const mainImage = (() => {
                                     try {
                                         if (Array.isArray(p.images) && p.images.length > 0) return p.images[0];
                                         if (typeof p.images === 'string') {
                                             const trimmed = p.images.trim();
-                                            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-                                                const parsed = JSON.parse(trimmed);
-                                                if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+                                            if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+                                                try {
+                                                    const parsed = JSON.parse(trimmed);
+                                                    if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+                                                    if (typeof parsed === 'string') return parsed;
+                                                    if (parsed.url) return parsed.url;
+                                                    if (parsed.image) return parsed.image;
+                                                } catch (e) {
+                                                    return trimmed.split(',')[0].replace(/^["'\[{]+|["'\]}]+$/g, '');
+                                                }
                                             }
-                                            // Split comma separated, handle quotes
-                                            const first = trimmed.split(',')[0].trim();
-                                            return first.replace(/^["'\[]+|["'\]]+$/g, '');
+                                            return trimmed.split(',')[0].replace(/^["'\[{]+|["'\]}]+$/g, '');
                                         }
                                         return null;
                                     } catch (e) { return null; }
@@ -828,31 +923,34 @@ export default function AdminDashboard() {
 
                                 const safeImage = mainImage && mainImage.length > 5 ? mainImage : null;
                                 return (
-                                    <div key={p.id} className="group bg-neutral-900/20 border border-white/10 p-4 rounded-lg relative hover:border-gold/50 transition-colors">
+                                    <div key={p.id} className={`group bg-neutral-900/40 border ${p.is_favorite ? 'border-gold/60 shadow-[0_0_15px_-5px_rgba(212,175,55,0.3)]' : 'border-white/10'} p-4 rounded-lg relative hover:border-gold transition-all duration-300`}>
                                         <div className="relative aspect-square mb-4">
-                                            {/* Image with Dimming/Grayscale */}
-                                            <div className={`w-full h-full bg-transparent relative rounded-sm flex items-center justify-center overflow-hidden border border-white/5 transition-all duration-500 ${p.is_active === false ? 'opacity-30 grayscale' : ''}`}>
-                                                {safeImage ? <img src={safeImage} alt={p.name} className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500" /> : <div className="text-xs text-neutral-300">Sin imagen</div>}
+                                            <div className={`w-full h-full bg-black relative rounded-sm flex items-center justify-center overflow-hidden border border-white/5 transition-all duration-500 ${p.is_active === false || (p.stock || 0) <= 0 ? 'opacity-30 grayscale' : ''}`}>
+                                                {safeImage ? <img src={safeImage} alt={p.name} className="object-contain w-full h-full" /> : <div className="text-[10px] text-neutral-500 font-mono uppercase">Sin imagen</div>}
                                                 {p.is_active === false && (
-                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
-                                                        <span className="bg-red-600 text-white text-[10px] font-mono px-3 py-1 rounded-full uppercase tracking-tighter">Inhabilitado</span>
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                                                        <span className="bg-red-600 text-white text-[9px] font-mono px-2 py-0.5 rounded-full uppercase tracking-widest">Oculto</span>
+                                                    </div>
+                                                )}
+                                                {(p.stock || 0) <= 0 && p.is_active !== false && (
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                                                        <span className="bg-yellow-600 text-white text-[9px] font-mono px-2 py-0.5 rounded-full uppercase tracking-widest">Sin Stock</span>
                                                     </div>
                                                 )}
                                             </div>
 
-                                            {/* Action Buttons - Always visible */}
-                                            <div className="absolute top-2 right-2 flex flex-col gap-2 z-30 transition-all duration-300">
+                                            <div className="absolute top-2 right-2 flex flex-col gap-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button onClick={() => handleEditProduct(p)} className="bg-white text-black p-2 rounded-full hover:bg-gold shadow-xl hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={14} /></button>
                                                 <button
                                                     onClick={async (e) => {
                                                         e.stopPropagation();
-                                                        const targetStatus = p.is_active === false ? true : false;
+                                                        const targetStatus = !p.is_active;
                                                         const { error } = await supabase.from('products').update({ is_active: targetStatus }).eq('id', p.id);
                                                         if (!error) {
                                                             setProducts(prev => prev.map(item => item.id === p.id ? { ...item, is_active: targetStatus } : item));
-                                                            addToast(targetStatus ? "Producto Habilitado" : "Producto Inhabilitado", "success");
+                                                            addToast(targetStatus ? "Producto Visible" : "Producto Oculto", "success");
                                                         } else {
-                                                            addToast("Error al conectar con la base de datos", "error");
+                                                            addToast("Error al actualizar", "error");
                                                         }
                                                     }}
                                                     className={`${p.is_active === false ? 'bg-red-600' : 'bg-green-600'} text-white p-2 rounded-full hover:scale-110 active:scale-95 transition-all shadow-xl`}
@@ -860,26 +958,21 @@ export default function AdminDashboard() {
                                                 >
                                                     <Package size={14} />
                                                 </button>
-                                                <button onClick={() => handleDeleteProduct(p.id)} className="bg-black text-white p-2 rounded-full hover:bg-red-600 border border-white/20 shadow-xl hover:scale-110 active:scale-95 transition-all" title="Eliminar Permanente"><Trash2 size={14} /></button>
+                                                <button onClick={() => handleDeleteProduct(p.id)} className="bg-black text-white p-2 rounded-full hover:bg-red-600 border border-white/20 shadow-xl hover:scale-110 active:scale-95 transition-all" title="Eliminar"><Trash2 size={14} /></button>
                                             </div>
                                         </div>
                                         <div className="text-center">
                                             <div className="flex justify-center gap-1 mb-1"><span className="text-[9px] text-neutral-500 uppercase tracking-widest">{p.brands?.name || '...'}</span></div>
                                             <h3 className="text-sm font-serif text-white mb-1 truncate">{p.name}</h3>
-                                            <div className="flex items-center justify-center gap-2">
-                                                {p.discount_percentage > 0 ? (
-                                                    <>
-                                                        <p className="text-neutral-500 font-mono text-[10px] line-through">${p.price?.toLocaleString()}</p>
-                                                        <p className="text-gold font-mono text-xs font-bold">${(p.price * (1 - p.discount_percentage / 100)).toLocaleString()}</p>
-                                                        <span className="bg-gold text-black text-[8px] px-1 font-bold rounded">-{p.discount_percentage}%</span>
-                                                    </>
-                                                ) : (
-                                                    <p className="text-gold font-mono text-xs">${p.price?.toLocaleString()}</p>
-                                                )}
+                                            <div className="flex items-center justify-center gap-2 mb-2">
+                                                <p className="text-gold font-mono text-xs font-bold">${p.price?.toLocaleString()}</p>
+                                                <span className={`text-[9px] px-2 py-0.5 rounded font-mono ${(p.stock || 0) > 0 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                    Stock: {p.stock || 0}
+                                                </span>
                                             </div>
                                             {p.is_favorite && (
-                                                <div className="mt-2 flex justify-center">
-                                                    <span className="text-[8px] bg-white/10 text-gold border border-gold/30 px-2 py-0.5 rounded-full uppercase tracking-tighter">★ Favorito</span>
+                                                <div className="flex justify-center">
+                                                    <span className="text-[8px] bg-gold/10 text-gold border border-gold/30 px-2 py-0.5 rounded uppercase tracking-tighter">★ Destacado</span>
                                                 </div>
                                             )}
                                         </div>

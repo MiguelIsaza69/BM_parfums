@@ -43,8 +43,36 @@ export async function POST(request: Request) {
                 return NextResponse.json({ error: 'DB Update failed' }, { status: 500 });
             }
 
-            // If approved, trigger the invoice email automatically
+            // If approved, decrement stock (if not already done) and trigger the invoice email automatically
             if (status === 'APPROVED' && updatedOrder) {
+                console.log(`[WEBHOOK] APPROVED Order #${reference}. Current stock_deducted: ${updatedOrder.stock_deducted}`);
+
+                if (!updatedOrder.stock_deducted) {
+                    try {
+                        const items = updatedOrder.items || [];
+                        for (const item of items) {
+                            const { data: product, error: fetchError } = await supabase
+                                .from('products')
+                                .select('stock')
+                                .eq('id', item.id)
+                                .single();
+
+                            if (product && !fetchError) {
+                                const newStock = Math.max(0, (product.stock || 0) - item.quantity);
+                                const updateData: any = { stock: newStock };
+                                if (newStock <= 0) updateData.is_active = false;
+
+                                await supabase.from('products').update(updateData).eq('id', item.id);
+                                console.log(`[WEBHOOK] Stock updated for product ${item.id}: ${product.stock} -> ${newStock}`);
+                            }
+                        }
+                        // Mark as deducted to avoid duplicates
+                        await supabase.from('orders').update({ stock_deducted: true }).eq('id', updatedOrder.id);
+                    } catch (stockError) {
+                        console.error("[WEBHOOK] Critical error updating stock:", stockError);
+                    }
+                }
+
                 console.log(`[WEBHOOK] Triggering automatic email for Order #${reference}`);
                 try {
                     // Call our own internal API route

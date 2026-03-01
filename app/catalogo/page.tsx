@@ -28,6 +28,16 @@ function CatalogContent() {
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
     const [showMobileFilters, setShowMobileFilters] = useState(false);
+    const [openSections, setOpenSections] = useState({
+        price: true,
+        gender: true,
+        categories: true,
+        brands: true
+    });
+
+    const toggleSection = (section: keyof typeof openSections) => {
+        setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
 
     const ITEMS_PER_PAGE = 15;
 
@@ -65,15 +75,24 @@ function CatalogContent() {
                                 if (Array.isArray(p.images) && p.images.length > 0) img = p.images[0];
                                 else if (typeof p.images === 'string') {
                                     const trimmed = p.images.trim();
-                                    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-                                        const parsed = JSON.parse(trimmed);
-                                        if (Array.isArray(parsed) && parsed.length > 0) img = parsed[0];
+                                    // Handle array or object looking strings
+                                    if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+                                        try {
+                                            const parsed = JSON.parse(trimmed);
+                                            if (Array.isArray(parsed) && parsed.length > 0) img = parsed[0];
+                                            else if (typeof parsed === 'string') img = parsed;
+                                            else if (parsed.url) img = parsed.url;
+                                            else if (parsed.image) img = parsed.image;
+                                        } catch (e) {
+                                            // Fallback if it's not valid JSON despite braces
+                                            img = trimmed.split(',')[0].replace(/^['"\[{]+|['"\]}]+$/g, '');
+                                        }
                                     } else {
-                                        img = trimmed.split(',')[0].replace(/^['"\[]+|['"\]]+$/g, '');
+                                        img = trimmed.split(',')[0].replace(/^['"\[{]+|['"\]}]+$/g, '');
                                     }
                                 }
                             } catch (e) { }
-                            return (img && img.length > 5) ? img : "/placeholder.jpg";
+                            return (img && img.length > 5) ? img.trim() : "/placeholder.jpg";
                         })()
                     }));
                     setAllProducts(processed);
@@ -137,8 +156,8 @@ function CatalogContent() {
         // Price
         result = result.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
 
-        // Soft Delete (is_active)
-        result = result.filter(p => (p as any).is_active !== false);
+        // Active & In Stock Only
+        result = result.filter(p => (p as any).is_active !== false && (p.stock > 0));
 
         return result;
     }, [allProducts, selectedGenders, selectedCategories, selectedBrands, priceRange]);
@@ -193,31 +212,40 @@ function CatalogContent() {
                     <div className="flex-1 overflow-y-auto lg:overflow-visible pr-2 custom-scrollbar space-y-8">
                         {/* Price Filter */}
                         <div className="border-b border-white/10 pb-6">
-                            <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
+                            <h3
+                                onClick={() => toggleSection('price')}
+                                className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between cursor-pointer group hover:text-gold transition-colors"
+                            >
                                 Precio
-                                <ChevronDown size={14} />
+                                <ChevronDown size={14} className={`transition-transform duration-300 ${openSections.price ? '' : '-rotate-90'}`} />
                             </h3>
-                            <input
-                                type="range"
-                                min="0"
-                                max="1000000"
-                                step="5000"
-                                value={priceRange[1]}
-                                onChange={(e) => setPriceRange([0, parseInt(e.target.value)])}
-                                className="w-full accent-gold h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
-                            />
-                            <div className="flex justify-between text-xs font-mono text-neutral-400 mt-2">
-                                <span>$0</span>
-                                <span>${priceRange[1].toLocaleString('es-CO')}</span>
+                            <div className={`transition-all duration-300 overflow-hidden ${openSections.price ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1000000"
+                                    step="5000"
+                                    value={priceRange[1]}
+                                    onChange={(e) => setPriceRange([0, parseInt(e.target.value)])}
+                                    className="w-full accent-gold h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <div className="flex justify-between text-xs font-mono text-neutral-400 mt-2">
+                                    <span>$0</span>
+                                    <span>${priceRange[1].toLocaleString('es-CO')}</span>
+                                </div>
                             </div>
                         </div>
 
                         {/* Gender Filter */}
                         <div className="border-b border-white/10 pb-6">
-                            <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
-                                Género <ChevronDown size={14} />
+                            <h3
+                                onClick={() => toggleSection('gender')}
+                                className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between cursor-pointer group hover:text-gold transition-colors"
+                            >
+                                Género
+                                <ChevronDown size={14} className={`transition-transform duration-300 ${openSections.gender ? '' : '-rotate-90'}`} />
                             </h3>
-                            <div className="flex flex-col gap-3">
+                            <div className={`flex flex-col gap-3 transition-all duration-300 overflow-hidden ${openSections.gender ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
                                 {genders.map(g => (
                                     <label key={g.id} className="flex items-center gap-3 cursor-pointer group">
                                         <div
@@ -234,41 +262,53 @@ function CatalogContent() {
 
                         {/* Categories Filter */}
                         <div className="border-b border-white/10 pb-6">
-                            <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
-                                Categorías <ChevronDown size={14} />
+                            <h3
+                                onClick={() => toggleSection('categories')}
+                                className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between cursor-pointer group hover:text-gold transition-colors"
+                            >
+                                Categorías
+                                <ChevronDown size={14} className={`transition-transform duration-300 ${openSections.categories ? '' : '-rotate-90'}`} />
                             </h3>
-                            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto hide-scrollbar">
-                                {categories.map(cat => (
-                                    <label key={cat.id} className="flex items-center gap-3 cursor-pointer group">
-                                        <div
-                                            className={`w-3 h-3 border border-white/30 flex items-center justify-center transition-colors ${selectedCategories.includes(cat.id) ? 'bg-gold border-gold' : 'group-hover:border-white'}`}
-                                            onClick={() => toggleCategory(cat.id)}
-                                        />
-                                        <span className={`text-xs font-mono uppercase tracking-wide transition-colors ${selectedCategories.includes(cat.id) ? 'text-gold' : 'text-neutral-400 hover:text-white'}`}>
-                                            {cat.name}
-                                        </span>
-                                    </label>
-                                ))}
+                            <div className={`flex flex-col gap-2 transition-all duration-300 overflow-hidden ${openSections.categories ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+                                <div className="max-h-48 overflow-y-auto hide-scrollbar flex flex-col gap-2">
+                                    {categories.map(cat => (
+                                        <label key={cat.id} className="flex items-center gap-3 cursor-pointer group">
+                                            <div
+                                                className={`w-3 h-3 border border-white/30 flex items-center justify-center transition-colors ${selectedCategories.includes(cat.id) ? 'bg-gold border-gold' : 'group-hover:border-white'}`}
+                                                onClick={() => toggleCategory(cat.id)}
+                                            />
+                                            <span className={`text-xs font-mono uppercase tracking-wide transition-colors ${selectedCategories.includes(cat.id) ? 'text-gold' : 'text-neutral-400 hover:text-white'}`}>
+                                                {cat.name}
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
                         {/* Brands Filter */}
                         <div className="pb-6">
-                            <h3 className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between">
-                                Marcas <ChevronDown size={14} />
+                            <h3
+                                onClick={() => toggleSection('brands')}
+                                className="text-sm font-mono uppercase tracking-widest mb-4 flex items-center justify-between cursor-pointer group hover:text-gold transition-colors"
+                            >
+                                Marcas
+                                <ChevronDown size={14} className={`transition-transform duration-300 ${openSections.brands ? '' : '-rotate-90'}`} />
                             </h3>
-                            <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                                {brands.map(b => (
-                                    <label key={b.id} className="flex items-center gap-3 cursor-pointer group">
-                                        <div
-                                            className={`w-3 h-3 border border-white/30 flex items-center justify-center transition-colors ${selectedBrands.includes(b.name) ? 'bg-gold border-gold' : 'group-hover:border-white'}`}
-                                            onClick={() => toggleBrand(b.name)}
-                                        />
-                                        <span className={`text-xs font-mono uppercase tracking-wide transition-colors ${selectedBrands.includes(b.name) ? 'text-gold' : 'text-neutral-400 hover:text-white'}`}>
-                                            {b.name}
-                                        </span>
-                                    </label>
-                                ))}
+                            <div className={`flex flex-col gap-2 transition-all duration-300 overflow-hidden ${openSections.brands ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+                                <div className="max-h-60 overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-2">
+                                    {brands.map(b => (
+                                        <label key={b.id} className="flex items-center gap-3 cursor-pointer group">
+                                            <div
+                                                className={`w-3 h-3 border border-white/30 flex items-center justify-center transition-colors ${selectedBrands.includes(b.name) ? 'bg-gold border-gold' : 'group-hover:border-white'}`}
+                                                onClick={() => toggleBrand(b.name)}
+                                            />
+                                            <span className={`text-xs font-mono uppercase tracking-wide transition-colors ${selectedBrands.includes(b.name) ? 'text-gold' : 'text-neutral-400 hover:text-white'}`}>
+                                                {b.name}
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>

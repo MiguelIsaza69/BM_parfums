@@ -17,12 +17,12 @@ export function ProductGrid() {
                 .from('products')
                 .select('*, brands(name)')
                 .eq('is_active', true)
-                .eq('is_favorite', true)
-                .order('created_at', { ascending: false })
-                .limit(8);
+                .eq('is_favorite', true);
 
             if (data) {
-                setProducts(data);
+                // Shuffle all favorites and pick 8 random ones
+                const shuffled = [...data].sort(() => 0.5 - Math.random());
+                setProducts(shuffled.slice(0, 8));
             }
         };
 
@@ -48,11 +48,18 @@ export function ProductGrid() {
                             mainImage = product.images[0];
                         } else if (typeof product.images === 'string') {
                             const trimmed = product.images.trim();
-                            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-                                const parsed = JSON.parse(trimmed);
-                                if (Array.isArray(parsed) && parsed.length > 0) mainImage = parsed[0];
+                            if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+                                try {
+                                    const parsed = JSON.parse(trimmed);
+                                    if (Array.isArray(parsed) && parsed.length > 0) mainImage = parsed[0];
+                                    else if (typeof parsed === 'string') mainImage = parsed;
+                                    else if (parsed.url) mainImage = parsed.url;
+                                    else if (parsed.image) mainImage = parsed.image;
+                                } catch (e) {
+                                    mainImage = trimmed.split(',')[0].replace(/^['"\[{]+|['"\]}]+$/g, '');
+                                }
                             } else {
-                                mainImage = trimmed.split(',')[0].replace(/^['"\[]+|['"\]]+$/g, '');
+                                mainImage = trimmed.split(',')[0].replace(/^['"\[{]+|['"\]}]+$/g, '');
                             }
                         }
                     } catch (e) { console.error("Error parsing product image:", e); }
