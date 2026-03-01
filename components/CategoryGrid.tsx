@@ -2,13 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 
 export function CategoryGrid() {
     const [categories, setCategories] = useState<any[]>([]);
     const [isInteracting, setIsInteracting] = useState(false);
-    const scrollRef = typeof window !== 'undefined' ? (require('react').useRef<HTMLDivElement>(null)) : { current: null };
+    const scrollRef = useRef<HTMLDivElement>(null);
 
     // Drag to scroll state
     const [isDragging, setIsDragging] = useState(false);
