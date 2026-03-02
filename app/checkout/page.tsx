@@ -41,7 +41,11 @@ export default function CheckoutPage() {
     const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
     const [discountAmount, setDiscountAmount] = useState(0);
 
-    const finalTotal = total - discountAmount;
+    // Shipping Logic
+    const SHIPPING_THRESHOLD = 180000;
+    const SHIPPING_COST = 15000;
+    const shippingPrice = total >= SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+    const finalTotal = total - discountAmount + shippingPrice;
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [showGuestInvite, setShowGuestInvite] = useState(false);
@@ -255,7 +259,7 @@ export default function CheckoutPage() {
             user_id: currentUser?.id || null,
             total: finalTotal,
             status: 'pending',
-            shipping_info: formData,
+            shipping_info: { ...formData, shipping_cost: shippingPrice },
             items: items,
             coupon_id: appliedCoupon?.id || null
         }]).select().single();
@@ -779,6 +783,21 @@ export default function CheckoutPage() {
                         <div className="bg-white/5 border border-white/10 p-8 sticky top-32 backdrop-blur-sm">
                             <h2 className="text-xl font-serif mb-6 border-b border-white/10 pb-4">Resumen</h2>
 
+                            <div className="mb-8">
+                                <div className="flex justify-between text-[10px] font-mono mb-2 uppercase tracking-widest text-neutral-400">
+                                    <span>{total >= SHIPPING_THRESHOLD ? "¡Envío Gratis!" : "Faltan para envío gratis"}</span>
+                                    {total < SHIPPING_THRESHOLD && (
+                                        <span className="text-gold">${(SHIPPING_THRESHOLD - total).toLocaleString('es-CO')}</span>
+                                    )}
+                                </div>
+                                <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-gold transition-all duration-700 ease-in-out shadow-[0_0_8px_rgba(212,175,55,0.6)]"
+                                        style={{ width: `${Math.min((total / SHIPPING_THRESHOLD) * 100, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+
                             <div className="flex flex-col gap-4 mb-8 max-h-[300px] overflow-y-auto custom-scrollbar">
                                 {items.map((item) => (
                                     <div key={item.id} className="flex gap-4">
@@ -848,7 +867,7 @@ export default function CheckoutPage() {
 
                                 <div className="flex justify-between">
                                     <span>Envío</span>
-                                    <span>Gratis</span>
+                                    <span>{shippingPrice === 0 ? "Gratis" : `$${shippingPrice.toLocaleString('es-CO')}`}</span>
                                 </div>
                                 <div className="flex justify-between text-white text-lg font-bold border-t border-white/10 pt-4 mt-2">
                                     <span>Total</span>
@@ -856,7 +875,7 @@ export default function CheckoutPage() {
                                         <span>${finalTotal.toLocaleString('es-CO')}</span>
                                         {appliedCoupon && (
                                             <span className="text-[10px] text-neutral-500 line-through font-normal">
-                                                ${total.toLocaleString('es-CO')}
+                                                ${(total + shippingPrice).toLocaleString('es-CO')}
                                             </span>
                                         )}
                                     </div>

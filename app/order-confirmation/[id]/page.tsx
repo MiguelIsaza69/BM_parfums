@@ -119,6 +119,11 @@ export default function OrderConfirmationPage() {
 
     const { shipping_info, items, total, id, created_at, status } = order;
 
+    const itemsSubtotal = items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+    const shippingCost = shipping_info.shipping_cost ?? (total >= 180000 ? 0 : 15000);
+    const hasDiscount = (itemsSubtotal + shippingCost) > total;
+    const discountAmount = (itemsSubtotal + shippingCost) - total;
+
     return (
         <main className="min-h-screen bg-black text-white print:bg-white print:text-black">
             <div className="print:hidden">
@@ -254,11 +259,19 @@ export default function OrderConfirmationPage() {
                         <div className="w-full md:w-1/2 space-y-3">
                             <div className="flex justify-between text-sm font-mono text-neutral-600">
                                 <span>Subtotal</span>
-                                <span>${total.toLocaleString('es-CO')}</span>
+                                <span>${itemsSubtotal.toLocaleString('es-CO')}</span>
                             </div>
+                            {hasDiscount && (
+                                <div className="flex justify-between text-sm font-mono text-green-600">
+                                    <span>Descuento</span>
+                                    <span>-${discountAmount.toLocaleString('es-CO')}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between text-sm font-mono text-neutral-600">
                                 <span>Envío</span>
-                                <span>$0 (Envío Gratis)</span>
+                                <span>
+                                    {shippingCost === 0 ? "Gratis" : `$${shippingCost.toLocaleString('es-CO')}`}
+                                </span>
                             </div>
                             <div className="flex justify-between text-xl font-serif font-bold border-t-2 border-black pt-4 mt-4">
                                 <span>Total</span>
