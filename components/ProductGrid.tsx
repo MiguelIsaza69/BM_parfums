@@ -20,9 +20,9 @@ export function ProductGrid() {
                 .eq('is_favorite', true);
 
             if (data) {
-                // Shuffle all favorites and pick 8 random ones
+                // Shuffle all favorites and pick 12 random ones
                 const shuffled = [...data].sort(() => 0.5 - Math.random());
-                setProducts(shuffled.slice(0, 8));
+                setProducts(shuffled.slice(0, 12));
             }
         };
 
@@ -33,13 +33,13 @@ export function ProductGrid() {
     if (products.length === 0) return null;
 
     return (
-        <section className="bg-black py-16 px-8 md:px-24 lg:px-48">
+        <section className="bg-black py-16 px-6 md:px-12 lg:px-20">
             <div className="flex justify-between items-end mb-12 border-b border-white/10 pb-6">
                 <h2 className="text-4xl md:text-6xl font-serif">Los más esperados</h2>
                 <span className="font-mono text-sm">[01 — {products.length.toString().padStart(2, '0')}]</span>
             </div>
 
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {products.filter(p => p.is_active !== false).map((product, idx) => {
                     // Robust Image Extraction
                     let mainImage = "/placeholder.jpg";
@@ -73,7 +73,7 @@ export function ProductGrid() {
                     return (
                         <div
                             key={product.id}
-                            className="group relative border border-white/5 p-6 hover:border-gold/30 transition-all duration-700 bg-neutral-900/10 animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
+                            className="group relative border border-white/5 p-6 hover:border-gold/30 transition-all duration-700 bg-neutral-900/10 animate-in fade-in slide-in-from-bottom-4 fill-mode-both flex flex-col h-full"
                             style={{ animationDelay: `${idx * 100}ms` }}
                         >
                             <div className="relative h-[280px] w-full flex items-center justify-center mb-6 overflow-hidden transition-transform duration-700 group-hover:shadow-2xl shadow-black/50 p-4">
@@ -131,7 +131,7 @@ export function ProductGrid() {
                             </Link>
 
                             {/* Mobile/Tablet Permanent Button (XL screens < 1280px) */}
-                            <div className="mt-6 xl:hidden">
+                            <div className="mt-auto pt-6 xl:hidden">
                                 <button
                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); addItem(product); }}
                                     className="w-full bg-gold text-black font-bold uppercase py-4 px-4 text-xs flex items-center gap-3 justify-center active:bg-white transition-colors rounded-sm shadow-lg shadow-gold/10"
