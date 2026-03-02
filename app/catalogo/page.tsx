@@ -28,6 +28,9 @@ function CatalogContent() {
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
     const [showMobileFilters, setShowMobileFilters] = useState(false);
+    const [sortBy, setSortBy] = useState('most_sold');
+    const [salesCounts, setSalesCounts] = useState<Record<string, number>>({});
+    const [showSortDropdown, setShowSortDropdown] = useState(false);
     const [openSections, setOpenSections] = useState({
         price: true,
         gender: true,
@@ -59,7 +62,27 @@ function CatalogContent() {
                 const { data: pData } = await supabase
                     .from('products')
                     .select('*, brands(name), genders(name)')
+                    .order('is_favorite', { ascending: false })
                     .order('created_at', { ascending: false });
+
+                // Fetch Sales Data for "Most Sold" sorting
+                const { data: oData } = await supabase
+                    .from('orders')
+                    .select('items')
+                    .not('status', 'eq', 'cancelled');
+
+                const counts: Record<string, number> = {};
+                if (oData) {
+                    oData.forEach(order => {
+                        const items = order.items as any[];
+                        if (Array.isArray(items)) {
+                            items.forEach(item => {
+                                counts[item.id] = (counts[item.id] || 0) + (item.quantity || 1);
+                            });
+                        }
+                    });
+                }
+                setSalesCounts(counts);
 
                 if (pData) {
                     // Pre-process products for easier filtering
@@ -132,10 +155,11 @@ function CatalogContent() {
         }
     }, [searchParams, isLoading, categories, brands, genders]);
 
-    // Derived State (Filtering)
-    const filteredProducts = useMemo(() => {
-        let result = allProducts;
+    // Derived State (Filtering & Sorting)
+    const filteredAndSortedProducts = useMemo(() => {
+        let result = [...allProducts];
 
+        // 1. Filtering
         // Gender
         if (selectedGenders.length > 0) {
             result = result.filter(p => selectedGenders.includes(p.genderName));
@@ -159,27 +183,61 @@ function CatalogContent() {
         // Active & In Stock Only
         result = result.filter(p => (p as any).is_active !== false && (p.stock > 0));
 
+        // 2. Sorting
+        result.sort((a, b) => {
+            switch (sortBy) {
+                case 'most_sold':
+                    return (salesCounts[b.id] || 0) - (salesCounts[a.id] || 0);
+                case 'least_sold':
+                    return (salesCounts[a.id] || 0) - (salesCounts[b.id] || 0);
+                case 'price_desc':
+                    return b.price - a.price;
+                case 'price_asc':
+                    return a.price - b.price;
+                case 'az':
+                    return a.name.localeCompare(b.name);
+                case 'za':
+                    return b.name.localeCompare(a.name);
+                case 'newest':
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                default:
+                    return 0;
+            }
+        });
+
         return result;
-    }, [allProducts, selectedGenders, selectedCategories, selectedBrands, priceRange]);
+    }, [allProducts, selectedGenders, selectedCategories, selectedBrands, priceRange, sortBy, salesCounts]);
+
+    const totalProductsCount = filteredAndSortedProducts.length;
 
     // Derived State (Pagination)
     const paginatedProducts = useMemo(() => {
         const start = (currentPage - 1) * ITEMS_PER_PAGE;
         const end = start + ITEMS_PER_PAGE;
-        return filteredProducts.slice(start, end);
-    }, [filteredProducts, currentPage]);
+        return filteredAndSortedProducts.slice(start, end);
+    }, [filteredAndSortedProducts, currentPage]);
 
-    // Reset pagination when filters change
+    // Reset pagination when filters or sorting change
     useEffect(() => {
         setCurrentPage(1);
-    }, [selectedGenders, selectedCategories, selectedBrands, priceRange]);
+    }, [selectedGenders, selectedCategories, selectedBrands, priceRange, sortBy]);
 
     // Handlers
     const toggleGender = (g: string) => setSelectedGenders(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
     const toggleCategory = (id: string) => setSelectedCategories(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     const toggleBrand = (b: string) => setSelectedBrands(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b]);
 
-    const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(totalProductsCount / ITEMS_PER_PAGE);
+
+    const sortOptions = [
+        { id: 'most_sold', label: 'Más vendidos' },
+        { id: 'least_sold', label: 'Menos vendidos' },
+        { id: 'price_desc', label: 'Mayor precio' },
+        { id: 'price_asc', label: 'Menor precio' },
+        { id: 'az', label: 'Nombre A-Z' },
+        { id: 'za', label: 'Nombre Z-A' },
+        { id: 'newest', label: 'Más nuevos' }
+    ];
 
     return (
         <main className="min-h-screen bg-black text-white pt-32">
@@ -333,13 +391,43 @@ function CatalogContent() {
                                 <Filter size={14} /> Filtros
                             </button>
                             <span className="hidden sm:inline text-xs font-mono text-neutral-400">
-                                {filteredProducts.length} productos • Página {currentPage} de {totalPages || 1}
+                                {totalProductsCount} productos • Página {currentPage} de {totalPages || 1}
                             </span>
                         </div>
 
-                        <div className="flex items-center gap-2 cursor-pointer hover:text-gold transition-colors">
-                            <span className="text-xs font-mono uppercase">Más vendidos</span>
-                            <ChevronDown size={14} />
+                        <div className="relative">
+                            <div
+                                onClick={() => setShowSortDropdown(!showSortDropdown)}
+                                className="flex items-center gap-2 cursor-pointer hover:text-gold transition-colors"
+                            >
+                                <span className="text-xs font-mono uppercase">
+                                    {sortOptions.find(o => o.id === sortBy)?.label || 'Ordenar'}
+                                </span>
+                                <ChevronDown size={14} className={showSortDropdown ? 'rotate-180' : ''} />
+                            </div>
+
+                            {showSortDropdown && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 z-10"
+                                        onClick={() => setShowSortDropdown(false)}
+                                    />
+                                    <div className="absolute right-0 mt-2 w-48 bg-neutral-900 border border-white/10 rounded shadow-xl z-20 py-2">
+                                        {sortOptions.map(option => (
+                                            <button
+                                                key={option.id}
+                                                onClick={() => {
+                                                    setSortBy(option.id);
+                                                    setShowSortDropdown(false);
+                                                }}
+                                                className={`w-full text-left px-4 py-2 text-xs font-mono uppercase transition-colors hover:bg-gold hover:text-black ${sortBy === option.id ? 'text-gold' : 'text-neutral-400'}`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -354,7 +442,7 @@ function CatalogContent() {
                                 ¿Tarda demasiado? Recargar
                             </button>
                         </div>
-                    ) : filteredProducts.length === 0 ? (
+                    ) : filteredAndSortedProducts.length === 0 ? (
                         <div className="text-center py-20 font-mono text-neutral-500">No se encontraron productos.</div>
                     ) : (
                         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
