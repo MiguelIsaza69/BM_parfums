@@ -768,12 +768,7 @@ export default function CheckoutPage() {
                                     </label>
                                 </div>
 
-                                <div className="flex gap-4 opacity-50">
-                                    {/* Placeholders for payment icons */}
-                                    <div className="w-10 h-6 bg-white/20 rounded" />
-                                    <div className="w-10 h-6 bg-white/20 rounded" />
-                                    <div className="w-10 h-6 bg-white/20 rounded" />
-                                </div>
+
                             </div>
 
                             {acceptanceData && (
