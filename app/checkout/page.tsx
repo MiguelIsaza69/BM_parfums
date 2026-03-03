@@ -102,13 +102,19 @@ export default function CheckoutPage() {
         const fetchWompiMerchant = async () => {
             try {
                 const publicKey = (process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY || '').trim();
-                const response = await fetch(`https://production.wompi.co/v1/merchants/${publicKey}`);
+                const isTest = publicKey.startsWith('pub_test_');
+                const baseUrl = isTest ? 'https://sandbox.wompi.co/v1' : 'https://production.wompi.co/v1';
+
+                console.log(`[Wompi] Fetching merchant info from ${isTest ? 'Sandbox' : 'Production'}...`);
+                const response = await fetch(`${baseUrl}/merchants/${publicKey}`);
                 const { data } = await response.json();
+
                 if (data && data.presigned_acceptance) {
                     setAcceptanceData({
                         token: data.presigned_acceptance.acceptance_token,
                         permalink: data.presigned_acceptance.permalink
                     });
+                    console.log("[Wompi] Acceptance data loaded successfully");
                 }
             } catch (error) {
                 console.error("Error fetching Wompi merchant data:", error);
@@ -172,6 +178,15 @@ export default function CheckoutPage() {
     };
 
     const handleApplyCoupon = async () => {
+        if (!currentUser) {
+            sileo.info({
+                title: "Inicia sesión",
+                description: "Debes iniciar sesión para poder usar cupones de descuento."
+            });
+            setIsAuthSidebarOpen(true);
+            return;
+        }
+
         if (!couponInput.trim()) return;
         setIsValidatingCoupon(true);
         try {
@@ -185,6 +200,21 @@ export default function CheckoutPage() {
             if (error) throw error;
 
             if (data) {
+                // Check if user has already used this coupon
+                const { data: alreadyUsed, error: usageError } = await supabase.rpc('check_coupon_usage', {
+                    p_coupon_id: data.id,
+                    p_user_email: formData.email.trim().toLowerCase(),
+                    p_user_id: currentUser?.id
+                });
+
+                if (alreadyUsed && !usageError) {
+                    sileo.error({
+                        title: "Cupón no disponible",
+                        description: "Ya has utilizado este cupón en una compra anterior."
+                    });
+                    return;
+                }
+
                 const discount = (total * data.discount_percentage) / 100;
                 setDiscountAmount(discount);
                 setAppliedCoupon(data);
@@ -269,6 +299,26 @@ export default function CheckoutPage() {
         // 1. Get User
         const { data: { user } } = await supabase.auth.getUser();
 
+        // 1.1 Check coupon usage again before creating order
+        if (appliedCoupon) {
+            const { data: alreadyUsed } = await supabase.rpc('check_coupon_usage', {
+                p_coupon_id: appliedCoupon.id,
+                p_user_email: formData.email.trim().toLowerCase(),
+                p_user_id: currentUser?.id || user?.id
+            });
+
+            if (alreadyUsed) {
+                sileo.error({
+                    title: "Cupón inválido",
+                    description: "Detectamos que este cupón ya fue utilizado en otra compra."
+                });
+                setAppliedCoupon(null);
+                setDiscountAmount(0);
+                setIsProcessing(false);
+                return;
+            }
+        }
+
         // 2 Create Order in 'pending' status
         const { data: order, error } = await supabase.from('orders').insert([{
             user_id: currentUser?.id || null,
@@ -321,17 +371,20 @@ export default function CheckoutPage() {
             }
 
             const publicKey = (process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY || '').trim();
+            const isTest = publicKey.startsWith('pub_test_');
+            const baseUrl = isTest ? 'https://sandbox.wompi.co/v1' : 'https://production.wompi.co/v1';
+
             if (!publicKey || publicKey.length < 10) {
                 throw new Error("Llave pública de Wompi inválida o ausente en .env.local");
             }
 
             // A. Direct API Payment (Bancolombia Transfer) - The "Postman" way
             if (paymentMethodSelection === "bancolombia") {
-                console.log("[Wompi] Procesando pago directo (API)...");
+                console.log(`[Wompi] Procesando pago directo (API) en ${isTest ? 'Sandbox' : 'Production'}...`);
                 // Limpiar teléfono para el API
                 const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^57/, '');
 
-                const response = await fetch('https://production.wompi.co/v1/transactions', {
+                const response = await fetch(`${baseUrl}/transactions`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${publicKey}`,
@@ -390,7 +443,7 @@ export default function CheckoutPage() {
 
                         try {
                             // Consultar por ID de transacción
-                            const checkRes = await fetch(`https://production.wompi.co/v1/transactions/${result.data.id}`, {
+                            const checkRes = await fetch(`${baseUrl}/transactions/${result.data.id}`, {
                                 headers: { 'Authorization': `Bearer ${publicKey}` }
                             });
                             const checkData = await checkRes.json();
@@ -769,22 +822,21 @@ export default function CheckoutPage() {
                                 </div>
 
 
+                                {acceptanceData && (
+                                    <div className="mt-4 flex items-start gap-3 bg-black/40 p-4 rounded border border-white/5">
+                                        <input
+                                            type="checkbox"
+                                            id="terms"
+                                            checked={termsAccepted}
+                                            onChange={(e) => setTermsAccepted(e.target.checked)}
+                                            className="mt-1 accent-gold h-4 w-4 rounded border-white/20 bg-black cursor-pointer"
+                                        />
+                                        <label htmlFor="terms" className="text-[10px] md:text-xs text-neutral-400 leading-relaxed cursor-pointer">
+                                            Acepto los <a href={acceptanceData.permalink} target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">términos y condiciones</a> de uso para usuarios finales de Wompi.
+                                        </label>
+                                    </div>
+                                )}
                             </div>
-
-                            {acceptanceData && (
-                                <div className="mt-4 flex items-start gap-3 bg-neutral-900/50 p-4 rounded-lg border border-white/10">
-                                    <input
-                                        type="checkbox"
-                                        id="terms"
-                                        checked={termsAccepted}
-                                        onChange={(e) => setTermsAccepted(e.target.checked)}
-                                        className="mt-1 accent-gold h-4 w-4 rounded border-white/20 bg-black cursor-pointer"
-                                    />
-                                    <label htmlFor="terms" className="text-[10px] md:text-xs text-neutral-400 leading-relaxed cursor-pointer">
-                                        Acepto los <a href={acceptanceData.permalink} target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">términos y condiciones</a> de uso para usuarios finales de Wompi.
-                                    </label>
-                                </div>
-                            )}
 
                             <button
                                 type="submit"
@@ -902,7 +954,7 @@ export default function CheckoutPage() {
                         </div>
                     </div>
                 </div>
-            </div>
+            </div >
 
             <Footer />
 
@@ -931,6 +983,6 @@ export default function CheckoutPage() {
                     phone: formData.phone
                 }}
             />
-        </main>
+        </main >
     );
 }
