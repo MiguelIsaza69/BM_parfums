@@ -890,7 +890,7 @@ export default function CheckoutPage() {
 
                                 <div className="flex justify-between">
                                     <span>Envío</span>
-                                    <span>{shippingPrice === 0 ? "Gratis" : `$${shippingPrice.toLocaleString('es-CO')}`}</span>
+                                    <span>{shippingPrice <= 0 ? "Gratis" : `$${(shippingPrice as number).toLocaleString('es-CO')}`}</span>
                                 </div>
                                 <div className="flex justify-between text-white text-lg font-bold border-t border-white/10 pt-4 mt-2">
                                     <span>Total</span>
