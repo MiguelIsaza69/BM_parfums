@@ -43,7 +43,7 @@ export default function CheckoutPage() {
 
     // Shipping Logic
     const SHIPPING_THRESHOLD = 180000;
-    const SHIPPING_COST = 15000;
+    const SHIPPING_COST = 0;
     const shippingPrice = total >= SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
     const finalTotal = total - discountAmount + shippingPrice;
 
@@ -102,7 +102,7 @@ export default function CheckoutPage() {
         const fetchWompiMerchant = async () => {
             try {
                 const publicKey = (process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY || '').trim();
-                const response = await fetch(`https://sandbox.wompi.co/v1/merchants/${publicKey}`);
+                const response = await fetch(`https://production.wompi.co/v1/merchants/${publicKey}`);
                 const { data } = await response.json();
                 if (data && data.presigned_acceptance) {
                     setAcceptanceData({
@@ -250,9 +250,9 @@ export default function CheckoutPage() {
             return;
         }
 
-        const phoneDigits = formData.phone.replace(/\s/g, "");
-        if (!/^\d+$/.test(phoneDigits) || phoneDigits.length < 7) {
-            sileo.error({ title: "Teléfono Inválido", description: "El número de teléfono debe contener solo números." });
+        const phoneDigits = formData.phone.replace(/\D/g, "");
+        if (phoneDigits.length < 7) {
+            sileo.error({ title: "Teléfono Inválido", description: "El número de teléfono debe tener al menos 7 dígitos." });
             setIsProcessing(false);
             return;
         }
@@ -295,22 +295,30 @@ export default function CheckoutPage() {
         };
 
         // 3. Prepare Wompi Data (EXACT INTEGERS ONLY)
-        const amountInCents = Math.round(finalTotal * 100);
-        const reference = order.id;
+        const amountInCents = Math.floor(finalTotal * 100);
+        const reference = String(order.id).trim();
         const currency = 'COP';
 
-        console.log(`[Wompi] Preparando pago - Ref: ${reference}, Centavos: ${amountInCents}`);
+        console.log(`[Wompi] Preparando pago - Ref: "${reference}", Centavos: ${amountInCents}`);
 
         try {
             // 4. Get Integrity Signature from Server
             const sigResponse = await fetch('/api/wompi/integrity', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reference, amountInCents, currency })
+                body: JSON.stringify({
+                    reference: reference,
+                    amountInCents: Math.floor(amountInCents),
+                    currency: 'COP'
+                })
             });
-            const { signature } = await sigResponse.json();
+            const sigResult = await sigResponse.json();
+            const signature = sigResult.signature;
 
-            if (!signature) throw new Error("Could not generate signature");
+            if (!signature) {
+                console.error("Debug sig response:", sigResult);
+                throw new Error("Could not generate signature");
+            }
 
             const publicKey = (process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY || '').trim();
             if (!publicKey || publicKey.length < 10) {
@@ -323,7 +331,7 @@ export default function CheckoutPage() {
                 // Limpiar teléfono para el API
                 const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^57/, '');
 
-                const response = await fetch('https://sandbox.wompi.co/v1/transactions', {
+                const response = await fetch('https://production.wompi.co/v1/transactions', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${publicKey}`,
@@ -382,7 +390,7 @@ export default function CheckoutPage() {
 
                         try {
                             // Consultar por ID de transacción
-                            const checkRes = await fetch(`https://sandbox.wompi.co/v1/transactions/${result.data.id}`, {
+                            const checkRes = await fetch(`https://production.wompi.co/v1/transactions/${result.data.id}`, {
                                 headers: { 'Authorization': `Bearer ${publicKey}` }
                             });
                             const checkData = await checkRes.json();
@@ -430,7 +438,7 @@ export default function CheckoutPage() {
                     }
 
                     // Usar llave de variable de entorno o fallback del dashboard
-                    const checkoutKey = publicKey || "pub_test_ouThMFD7jJjB5fyKV6NaJU1i0GWUEWa0";
+                    const checkoutKey = publicKey;
 
                     // Limpiar teléfono (solo números) para evitar errores de validación
                     const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^57/, '');
@@ -442,10 +450,10 @@ export default function CheckoutPage() {
                     // Log para depuración manual si el widget falla
                     const checkoutOptions = {
                         currency: 'COP',
-                        amountInCents: amountInCents,
+                        amountInCents: parseInt(amountInCents.toString()),
                         reference: reference,
-                        publicKey: checkoutKey,
-                        signature: signature,
+                        publicKey: publicKey.trim(),
+                        signature: signature.trim(),
                         acceptanceToken: acceptanceData?.token,
                         redirectUrl: `${window.location.origin}/order-confirmation/${reference}`,
                         customerData: {
@@ -491,7 +499,7 @@ export default function CheckoutPage() {
             };
 
             if (!document.getElementById(scriptId)) {
-                console.log("Cargando script de Wompi (SANDBOX)...");
+                console.log("Cargando script de Wompi (PRODUCCIÓN)...");
                 const script = document.createElement('script');
                 script.id = scriptId;
                 // URL para pruebas (Sandbox)

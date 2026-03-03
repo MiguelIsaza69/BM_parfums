@@ -3,40 +3,47 @@ import crypto from 'crypto';
 
 export async function POST(request: Request) {
     try {
-        const { reference, amountInCents, currency } = await request.json();
+        const body = await request.json();
+        const reference = body.reference;
+        const amountInCents = body.amountInCents || body.amount_in_cents;
+        const currency = body.currency || 'COP';
 
         // Limpiar inputs
         const cleanReference = String(reference).trim();
         const cleanAmount = String(Math.round(Number(amountInCents)));
         const cleanCurrency = String(currency).trim();
 
-        // Wompi Integrity Secret - Limpieza profunda
-        const rawSecret = process.env.WOMPI_INTEGRITY_SECRET || '';
-        const integritySecret = rawSecret.replace(/\s/g, '');
-
-        console.log(`[Wompi Server Debug] 
-        - Secreto detectado: ${integritySecret ? 'SI' : 'NO'} 
-        - Longitud: ${integritySecret.length}
-        - Empieza por: ${integritySecret.substring(0, 15)}...`);
+        // Wompi Integrity Secret
+        const integritySecret = (process.env.WOMPI_INTEGRITY_SECRET || '').trim();
 
         if (!integritySecret) {
-            console.error("[Wompi] ERROR: WOMPI_INTEGRITY_SECRET no definida en .env.local");
+            console.error("[Wompi] ERROR: WOMPI_INTEGRITY_SECRET no definida");
             return NextResponse.json({ error: 'Configuración incompleta' }, { status: 500 });
         }
 
         // Formula: SHA256(reference + amountInCents + currency + secret)
         const chain = `${cleanReference}${cleanAmount}${cleanCurrency}${integritySecret}`;
-        const signature = crypto.createHash('sha256').update(chain).digest('hex');
+        const signature = crypto.createHash('sha256').update(chain).digest('hex').trim();
 
-        console.log(`[Wompi Server] Generando firma:
-        - Ref: ${cleanReference}
-        - Monto: ${cleanAmount}
-        - Secret empieza por: ${integritySecret.substring(0, 8)}...
-        - Hash generado: ${signature.substring(0, 10)}...`);
+        console.log(`[Wompi Integrity]
+        - Reference: "${cleanReference}"
+        - Amount: "${cleanAmount}"
+        - Currency: "${cleanCurrency}"
+        - Chain Masked: ${cleanReference}${cleanAmount}${cleanCurrency}***${integritySecret.substring(integritySecret.length - 4)}
+        - Secret Preview: ${integritySecret.substring(0, 8)}... (Length: ${integritySecret.length})
+        - Signature: ${signature}`);
 
-        return NextResponse.json({ signature });
+        return NextResponse.json({
+            signature,
+            debug: {
+                reference: cleanReference,
+                amount: cleanAmount,
+                currency: cleanCurrency,
+                chain_prefix: `${cleanReference}${cleanAmount}${cleanCurrency}`
+            }
+        });
     } catch (error) {
-        console.error('Error generating Wompi signature:', error);
+        console.error('Error in /api/wompi/integrity:', error);
         return NextResponse.json({ error: 'Error interno' }, { status: 500 });
     }
 }

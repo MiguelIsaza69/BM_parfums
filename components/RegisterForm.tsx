@@ -93,6 +93,33 @@ export function RegisterForm({ onSuccess, initialEmail = "", initialFullName = "
 
         setLoading(true);
 
+        // 0. Check if email already exists in profiles
+        try {
+            const { data: existingProfile, error: profileError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('email', email.trim().toLowerCase())
+                .maybeSingle();
+
+            if (existingProfile) {
+                setLoading(false);
+                setAlert({
+                    isOpen: true,
+                    title: "CORREO YA REGISTRADO",
+                    message: "Este correo electrónico ya está en uso. Si olvidaste tu contraseña, intenta iniciar sesión o usa otro correo electrónico.",
+                    type: "warning"
+                });
+                return;
+            }
+
+            if (profileError) {
+                console.error("Profile check error:", profileError);
+                // We'll proceed with signUp if it's a simple query failure (like no RLS access yet)
+            }
+        } catch (err) {
+            console.error("Checking existing profile failed:", err);
+        }
+
         try {
             const { error } = await supabase.auth.signUp({
                 email,

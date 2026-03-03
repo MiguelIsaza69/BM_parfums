@@ -148,7 +148,7 @@ export function Header() {
                     <img
                         src="https://res.cloudinary.com/dbeaem1xr/image/upload/v1771865096/WhatsApp_Image_2026-02-11_at_3.37.42_PM-removebg-preview_lz7whv.png"
                         alt="BM Parfums"
-                        className="h-16 md:h-24 w-auto object-contain"
+                        className="h-12 md:h-18 w-auto object-contain"
                     />
                 </Link>
 

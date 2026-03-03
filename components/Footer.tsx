@@ -24,11 +24,12 @@ export function Footer() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 xl:gap-24 p-12 md:p-20 border-b border-white/10">
                 {/* Brand */}
                 <div className="flex flex-col gap-6 md:col-span-1 lg:col-span-1">
-                    <div className="relative w-48 h-24">
+                    <div className="relative w-36 h-18">
                         <Image
                             src="https://res.cloudinary.com/dbeaem1xr/image/upload/v1771865096/WhatsApp_Image_2026-02-11_at_3.37.42_PM-removebg-preview_lz7whv.png"
                             alt="BM Parfums Logo"
                             fill
+                            sizes="(max-width: 768px) 100vw, 144px"
                             className="object-contain"
                         />
                     </div>
@@ -67,7 +68,7 @@ export function Footer() {
                         <h4 className="font-mono text-[10px] uppercase tracking-[3px] text-gold mb-6 font-bold">Conéctate</h4>
                         <div className="flex gap-6">
                             <a href="https://instagram.com/bm__parfums" target="_blank" rel="noopener noreferrer" className="text-neutral-500 hover:text-white transition-all transform hover:scale-110"><Instagram size={20} /></a>
-                            <a href="https://tiktok.com/@bm__parfums" target="_blank" rel="noopener noreferrer" className="text-neutral-500 hover:text-white transition-all transform hover:scale-110"><Globe size={20} /></a>
+                            <a href="https://tiktok.com/@bm_parfums" target="_blank" rel="noopener noreferrer" className="text-neutral-500 hover:text-white transition-all transform hover:scale-110"><Globe size={20} /></a>
                             <a href="https://wa.me/573106129517" target="_blank" rel="noopener noreferrer" className="text-neutral-500 hover:text-white transition-all transform hover:scale-110"><MessageCircle size={20} /></a>
                         </div>
                     </div>
