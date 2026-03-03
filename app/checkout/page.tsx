@@ -453,7 +453,7 @@ export default function CheckoutPage() {
                         amountInCents: parseInt(amountInCents.toString()),
                         reference: reference,
                         publicKey: publicKey.trim(),
-                        signature: signature.trim(),
+                        signature: { integrity: signature.trim() },
                         acceptanceToken: acceptanceData?.token,
                         redirectUrl: `${window.location.origin}/order-confirmation/${reference}`,
                         customerData: {
