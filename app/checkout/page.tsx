@@ -43,7 +43,7 @@ export default function CheckoutPage() {
 
     // Shipping Logic
     const SHIPPING_THRESHOLD = 180000;
-    const SHIPPING_COST = 0;
+    const SHIPPING_COST = 15000;
     const shippingPrice = total >= SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
     const finalTotal = total - discountAmount + shippingPrice;
 
