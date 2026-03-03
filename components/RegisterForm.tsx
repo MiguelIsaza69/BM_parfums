@@ -45,6 +45,17 @@ export function RegisterForm({ onSuccess, initialEmail = "", initialFullName = "
             return;
         }
 
+        // Full Name Validation
+        if (!fullName.trim() || fullName.trim().length < 3) {
+            setAlert({
+                isOpen: true,
+                title: "DATOS INCOMPLETOS",
+                message: "Por favor, ingresa tu nombre completo para continuar.",
+                type: "warning"
+            });
+            return;
+        }
+
         // Email Validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!email.trim() || !emailRegex.test(email)) {
@@ -52,6 +63,19 @@ export function RegisterForm({ onSuccess, initialEmail = "", initialFullName = "
                 isOpen: true,
                 title: "CORREO INVÁLIDO",
                 message: "Por favor, ingresa un correo electrónico real y funcional (ej: usuario@gmail.com). Necesitarás acceder a él para verificar tu cuenta.",
+                type: "error"
+            });
+            return;
+        }
+
+        // Phone Validation (Numbers only and minimum length)
+        const phoneDigits = phone.replace(/\s/g, "");
+        const isOnlyNumbers = /^\d+$/.test(phoneDigits);
+        if (!phoneDigits || !isOnlyNumbers || phoneDigits.length < 7) {
+            setAlert({
+                isOpen: true,
+                title: "TELÉFONO INVÁLIDO",
+                message: "Por favor, ingresa un número de teléfono válido (solo números). Ej: 3001234567",
                 type: "error"
             });
             return;

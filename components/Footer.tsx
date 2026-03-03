@@ -73,14 +73,14 @@ export function Footer() {
                     </div>
 
                     <form onSubmit={handleJoin} className="flex flex-col gap-4">
-                        <label className="font-mono text-[9px] uppercase tracking-[4px] text-neutral-600">Suscríbete para Alertas</label>
+                        <label className="font-mono text-[10px] uppercase tracking-[4px] text-neutral-400">Suscríbete para Alertas</label>
                         <div className="flex flex-wrap sm:flex-nowrap border-b border-white/20 pb-2 transition-colors focus-within:border-gold group gap-4">
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="TU CORREO ELECTRÓNICO"
-                                className="bg-transparent outline-none flex-1 min-w-[150px] font-mono text-[11px] placeholder:text-neutral-800 tracking-widest text-white"
+                                className="bg-transparent outline-none flex-1 min-w-[150px] font-mono text-[11px] placeholder:text-neutral-500 tracking-widest text-white"
                             />
                             <button type="submit" className="text-gold font-bold uppercase text-[10px] tracking-widest hover:text-white transition-colors flex items-center gap-2 shrink-0">
                                 Unirse <Send size={10} />
@@ -91,14 +91,14 @@ export function Footer() {
             </div>
 
             <div className="p-8 text-center flex flex-col items-center gap-4 border-t border-white/5">
-                <div className="text-[9px] text-neutral-700 font-mono uppercase tracking-[4px]">
+                <div className="text-[12px] text-neutral-500 font-mono uppercase tracking-[4px]">
                     &copy; 2026 BM PARFUMS. TODOS LOS DERECHOS RESERVADOS.
                 </div>
                 <button
                     onClick={() => {
                         window.location.href = window.location.pathname + '?v=' + new Date().getTime();
                     }}
-                    className="text-[8px] text-neutral-800 hover:text-gold transition-colors font-mono uppercase tracking-[2px]"
+                    className="text-[8px] text-neutral-500 hover:text-gold transition-colors font-mono uppercase tracking-[2px]"
                 >
                     ¿Página lenta o con errores? Haz clic aquí para refrescar
                 </button>

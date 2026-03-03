@@ -242,6 +242,21 @@ export default function CheckoutPage() {
             return;
         }
 
+        // Specific field validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email)) {
+            sileo.error({ title: "Email Inválido", description: "Por favor ingresa un correo electrónico real." });
+            setIsProcessing(false);
+            return;
+        }
+
+        const phoneDigits = formData.phone.replace(/\s/g, "");
+        if (!/^\d+$/.test(phoneDigits) || phoneDigits.length < 7) {
+            sileo.error({ title: "Teléfono Inválido", description: "El número de teléfono debe contener solo números." });
+            setIsProcessing(false);
+            return;
+        }
+
         if (!termsAccepted) {
             sileo.error({
                 title: "Aceptación necesaria",
