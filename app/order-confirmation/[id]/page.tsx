@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { CheckCircle, Printer, Mail, ArrowLeft, ShoppingBag, LayoutDashboard } from "lucide-react";
+import { CheckCircle, Printer, Mail, ArrowLeft, ShoppingBag, LayoutDashboard, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { sileo } from "sileo";
@@ -20,29 +20,61 @@ export default function OrderConfirmationPage() {
     const [loading, setLoading] = useState(true);
     const [sendingEmail, setSendingEmail] = useState(false);
     const [emailSent, setEmailSent] = useState(false);
+    const [paymentStatus, setPaymentStatus] = useState<'APPROVED' | 'DECLINED' | 'PENDING' | 'ERROR' | 'VOIDED' | null>(null);
 
     useEffect(() => {
-        const fetchOrder = async () => {
+        const fetchOrderAndVerifyStatus = async () => {
             if (!params?.id) return;
 
-            const { data, error } = await supabase
+            // 1. Fetch current order from DB
+            const { data: dbOrder, error: dbError } = await supabase
                 .from('orders')
                 .select('*')
                 .eq('id', params.id)
                 .single();
 
-            if (error) {
-                console.error("Error fetching order:", error);
-                router.push(isAdmin ? '/admin' : '/catalogo'); // Fallback
+            if (dbError || !dbOrder) {
+                console.error("Error fetching order:", dbError);
+                router.push(isAdmin ? '/admin' : '/catalogo');
                 return;
             }
 
-            setOrder(data);
+            // 2. Check Wompi Transaction ID in query params (if redirected from successful/failed payment)
+            const transactionId = searchParams.get('id');
+
+            if (transactionId) {
+                console.log("[Confirmation] Verifying transaction:", transactionId);
+                try {
+                    const statusRes = await fetch(`/api/wompi/check-status?id=${transactionId}`);
+                    const statusData = await statusRes.json();
+
+                    if (statusData && statusData.status) {
+                        setPaymentStatus(statusData.status);
+
+                        // 3. Explicitly update DB from client if status changed and webhook hasn't hit yet
+                        if (statusData.status === 'APPROVED' && dbOrder.status === 'pending') {
+                            await supabase.from('orders').update({
+                                status: 'pending', // Reverted to pending per user request
+                                payment_id: transactionId,
+                                payment_method: statusData.payment_method_type
+                            }).eq('id', params.id);
+                        } else if (['DECLINED', 'VOIDED', 'ERROR'].includes(statusData.status)) {
+                            // Mark as failed instead of deleting so the user can see the error screen
+                            await supabase.from('orders').update({ status: 'failed' }).eq('id', params.id);
+                            dbOrder.status = 'failed';
+                        }
+                    }
+                } catch (e) {
+                    console.error("[Confirmation] Verification failed:", e);
+                }
+            }
+
+            setOrder(dbOrder);
             setLoading(false);
         };
 
-        fetchOrder();
-    }, [params?.id, router, isAdmin]);
+        fetchOrderAndVerifyStatus();
+    }, [params?.id, searchParams, router, isAdmin]);
 
     const handlePrint = () => {
         if (typeof window !== 'undefined') {
@@ -57,7 +89,6 @@ export default function OrderConfirmationPage() {
         try {
             console.log("Attempting to send email...");
 
-            // Check essential data
             if (!order.shipping_info?.email) {
                 sileo.error({
                     title: "Correo no encontrado",
@@ -69,9 +100,7 @@ export default function OrderConfirmationPage() {
 
             const response = await fetch('/api/send-invoice', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     orderId: order.id,
                     email: order.shipping_info.email,
@@ -80,27 +109,24 @@ export default function OrderConfirmationPage() {
                     total: order.total || 0,
                     shipping_info: order.shipping_info
                 }),
-                signal: AbortSignal.timeout(8000) // 8 second timeout
+                signal: AbortSignal.timeout(8000)
             });
 
             const data = await response.json();
 
             if (response.ok && data.success) {
                 setEmailSent(true);
-                // Alert removed for smoother UX
                 setTimeout(() => setEmailSent(false), 5000);
             } else {
-                console.error("Server responded with error:", data);
                 sileo.error({
                     title: "Error al enviar",
                     description: data.error || "Error desconocido"
                 });
             }
         } catch (error: any) {
-            console.error("Catch Error sending email:", error);
             sileo.error({
                 title: "Error de red",
-                description: "Hubo un problema al intentar enviar el correo. Por favor intenta nuevamente."
+                description: "Hubo un problema al intentar enviar el correo."
             });
         } finally {
             setSendingEmail(false);
@@ -118,30 +144,64 @@ export default function OrderConfirmationPage() {
     if (!order) return null;
 
     const { shipping_info, items, total, id, created_at, status } = order;
-
     const itemsSubtotal = items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
     const shippingCost = shipping_info.shipping_cost ?? (total >= 180000 ? 0 : 15000);
-    const hasDiscount = (itemsSubtotal + shippingCost) > total;
     const discountAmount = (itemsSubtotal + shippingCost) - total;
+    const hasDiscount = discountAmount > 50;
 
     return (
-        <main className="min-h-screen bg-black text-white print:bg-white print:text-black">
+        <main className="min-h-screen bg-black text-white">
             <div className="print:hidden">
                 <Header />
             </div>
 
-            <div className="container mx-auto px-6 md:px-12 lg:px-24 pt-48 pb-24 print:pt-8 print:pb-8">
+            <div className="container mx-auto px-6 md:px-12 lg:px-24 pt-48 pb-24 print:pt-8 print:bg-white print:text-black">
 
-                {/* Status Banner - Only for Customers */}
+                {/* Status Banner */}
                 {!isAdmin && (
-                    <div className="bg-gold/10 border border-gold/20 p-8 rounded-lg mb-12 flex flex-col items-center text-center print:hidden">
-                        <div className="w-16 h-16 bg-gold rounded-full flex items-center justify-center mb-4 text-black">
-                            <CheckCircle size={32} strokeWidth={3} />
+                    <div className={`border p-8 rounded-lg mb-12 flex flex-col items-center text-center print:hidden ${(status === 'processing' || status === 'completed' || status === 'pending')
+                        ? 'bg-gold/10 border-gold/20'
+                        : status === 'failed'
+                            ? 'bg-red-900/10 border-red-900/20'
+                            : 'bg-neutral-900/50 border-white/10'
+                        }`}>
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 text-black ${(status === 'processing' || status === 'completed' || status === 'pending')
+                            ? 'bg-gold'
+                            : status === 'failed'
+                                ? 'bg-red-500'
+                                : 'bg-neutral-500'
+                            }`}>
+                            {status === 'failed' ? <X size={32} strokeWidth={3} /> : <CheckCircle size={32} strokeWidth={3} />}
                         </div>
-                        <h1 className="text-3xl font-serif text-white mb-2">¡Pedido Recibido!</h1>
-                        <p className="text-neutral-400 font-mono text-sm max-w-md">
-                            Tu pedido ha sido tomado exitosamente. Recibirás tus productos en un lapso de <strong>3 a 5 días hábiles</strong>.
-                        </p>
+
+                        {(status === 'processing' || status === 'completed' || status === 'pending') ? (
+                            <>
+                                <h1 className="text-3xl font-serif text-white mb-2">¡Pedido Confirmado!</h1>
+                                <p className="text-neutral-400 font-mono text-sm max-w-md">
+                                    Tu pago ha sido procesado exitosamente. Recibirás tus productos en un lapso de <strong>3 a 5 días hábiles</strong>.
+                                </p>
+                            </>
+                        ) : status === 'failed' ? (
+                            <>
+                                <h1 className="text-3xl font-serif text-white mb-2">Transacción Fallida</h1>
+                                <p className="text-red-400 font-mono text-sm max-w-md">
+                                    ¡Lo sentimos! Hubo un error en la transacción y <strong>la compra no fue aprobada</strong>.
+                                </p>
+                                <Link
+                                    href="/catalogo"
+                                    className="mt-6 bg-white text-black px-8 py-3 rounded font-mono uppercase text-xs font-bold hover:bg-gold transition-colors"
+                                >
+                                    Intentar Nuevamente
+                                </Link>
+                            </>
+                        ) : (
+                            <>
+                                <h1 className="text-3xl font-serif text-white mb-2">Pedido Pendiente</h1>
+                                <p className="text-neutral-400 font-mono text-sm max-w-md">
+                                    Estamos esperando la confirmación de tu pago.
+                                </p>
+                            </>
+                        )}
                     </div>
                 )}
 
@@ -165,129 +225,134 @@ export default function OrderConfirmationPage() {
                             <Link href="/catalogo" className="flex items-center gap-2 px-6 py-3 border border-white/20 hover:bg-white/10 rounded transition-colors text-sm font-mono uppercase tracking-widest text-neutral-300">
                                 <ArrowLeft size={16} /> Volver a la Tienda
                             </Link>
-                            {order.user_id && (
-                                <Link href="/dashboard" className="flex items-center gap-2 px-6 py-3 border border-white/20 hover:bg-white/10 rounded transition-colors text-sm font-mono uppercase tracking-widest text-neutral-300">
-                                    <ShoppingBag size={16} /> Mis Pedidos
-                                </Link>
-                            )}
                             <div className="flex-1"></div>
-                            <button
-                                onClick={handleSendEmail}
-                                disabled={sendingEmail || emailSent}
-                                className={`flex items-center gap-2 px-6 py-3 border border-gold text-gold hover:bg-gold hover:text-black rounded transition-colors text-sm font-mono uppercase tracking-widest ${sendingEmail ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                                <Mail size={16} />
-                                {sendingEmail ? 'Enviando...' : emailSent ? '¡Enviado!' : 'Enviar a Correo'}
-                            </button>
-                            <button
-                                onClick={handlePrint}
-                                className="flex items-center gap-2 px-6 py-3 bg-white text-black hover:bg-neutral-200 rounded transition-colors text-sm font-mono uppercase tracking-widest font-bold"
-                            >
-                                <Printer size={16} /> Imprimir Factura
-                            </button>
+                            {(status === 'processing' || status === 'completed' || status === 'pending') && (
+                                <>
+                                    <button
+                                        onClick={handleSendEmail}
+                                        disabled={sendingEmail || emailSent}
+                                        className={`flex items-center gap-2 px-6 py-3 border border-gold text-gold hover:bg-gold hover:text-black rounded transition-colors text-sm font-mono uppercase tracking-widest ${sendingEmail ? 'opacity-50' : ''}`}
+                                    >
+                                        <Mail size={16} />
+                                        {sendingEmail ? 'Enviando...' : emailSent ? '¡Enviado!' : 'Enviar a Correo'}
+                                    </button>
+                                    <button
+                                        onClick={handlePrint}
+                                        className="flex items-center gap-2 px-6 py-3 bg-white text-black hover:bg-neutral-200 rounded transition-colors text-sm font-mono uppercase tracking-widest font-bold"
+                                    >
+                                        <Printer size={16} /> Imprimir Factura
+                                    </button>
+                                </>
+                            )}
                         </>
                     )}
                 </div>
 
-                {/* Invoice Container */}
-                <div className="bg-white text-black p-8 md:p-12 max-w-4xl mx-auto shadow-2xl print:shadow-none print:w-full print:max-w-none">
-
-                    {/* Invoice Header */}
-                    <div className="flex justify-between items-start border-b-2 border-black pb-8 mb-8">
-                        <div>
-                            <h2 className="text-3xl font-serif font-bold tracking-tighter mb-2">BM PARFUMS</h2>
-                            <p className="text-xs font-mono uppercase tracking-widest text-neutral-500">Factura de Venta</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="font-mono text-sm font-bold">Pedido #{id.slice(0, 8).toUpperCase()}</p>
-                            <p className="font-mono text-xs text-neutral-500">{new Date(created_at).toLocaleDateString()} {new Date(created_at).toLocaleTimeString()}</p>
-                            <div className="mt-2 inline-block px-3 py-1 bg-neutral-100 text-neutral-800 text-xs font-bold uppercase tracking-wider rounded border border-neutral-200">
-                                Pendiente
+                {/* Invoice Structure - Only show if processing/completed/pending or admin */}
+                {(status === 'processing' || status === 'completed' || status === 'pending' || isAdmin) ? (
+                    <div className="bg-white text-black p-8 md:p-12 rounded shadow-2xl relative overflow-hidden flex flex-col print:shadow-none print:p-0">
+                        {/* Header */}
+                        <div className="flex justify-between items-start border-b-2 border-black pb-8 mb-8">
+                            <div>
+                                <h2 className="text-3xl font-serif font-bold tracking-tighter mb-2">BM PARFUMS</h2>
+                                <p className="text-xs font-mono uppercase tracking-widest text-neutral-500">Factura de Venta</p>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Customer & Shipping Info */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
-                        <div>
-                            <h3 className="text-xs font-mono uppercase tracking-widest text-neutral-500 mb-4 border-b border-neutral-200 pb-2">Cliente</h3>
-                            <p className="font-serif font-bold text-lg">{shipping_info.name}</p>
-                            <p className="font-mono text-sm text-neutral-600">{shipping_info.email}</p>
-                            <p className="font-mono text-sm text-neutral-600">{shipping_info.phone}</p>
-                        </div>
-                        <div>
-                            <h3 className="text-xs font-mono uppercase tracking-widest text-neutral-500 mb-4 border-b border-neutral-200 pb-2">Dirección de Envío</h3>
-                            <p className="font-serif text-lg">{shipping_info.address}</p>
-                            {shipping_info.apartment && <p className="font-mono text-sm text-neutral-600">Apto/Unidad: {shipping_info.apartment}</p>}
-                            <p className="font-mono text-sm text-neutral-600">
-                                {shipping_info.neighborhood}, {shipping_info.city}
-                            </p>
-                            <p className="font-mono text-sm text-neutral-600 uppercase">{shipping_info.department}, COLOMBIA</p>
-                            {shipping_info.details && <p className="font-mono text-xs text-neutral-500 mt-2 italic">Ref: {shipping_info.details}</p>}
-                        </div>
-                    </div>
-
-                    {/* Items Table */}
-                    <div className="mb-12">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="border-b-2 border-black">
-                                    <th className="py-3 text-xs font-mono uppercase tracking-widest text-neutral-500 w-[50%]">Producto</th>
-                                    <th className="py-3 text-xs font-mono uppercase tracking-widest text-neutral-500 text-center">Cant.</th>
-                                    <th className="py-3 text-xs font-mono uppercase tracking-widest text-neutral-500 text-right">Precio Unit.</th>
-                                    <th className="py-3 text-xs font-mono uppercase tracking-widest text-neutral-500 text-right">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-neutral-200">
-                                {items.map((item: any, idx: number) => (
-                                    <tr key={idx}>
-                                        <td className="py-4">
-                                            <p className="font-serif font-bold text-sm">{item.name}</p>
-                                            <p className="text-[10px] font-mono uppercase text-neutral-500">{item.brand}</p>
-                                        </td>
-                                        <td className="py-4 text-center font-mono text-sm">{item.quantity}</td>
-                                        <td className="py-4 text-right font-mono text-sm">${item.price.toLocaleString('es-CO')}</td>
-                                        <td className="py-4 text-right font-mono text-sm font-bold">${(item.price * item.quantity).toLocaleString('es-CO')}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Totals */}
-                    <div className="flex justify-end">
-                        <div className="w-full md:w-1/2 space-y-3">
-                            <div className="flex justify-between text-sm font-mono text-neutral-600">
-                                <span>Subtotal</span>
-                                <span>${itemsSubtotal.toLocaleString('es-CO')}</span>
-                            </div>
-                            {hasDiscount && (
-                                <div className="flex justify-between text-sm font-mono text-green-600">
-                                    <span>Descuento</span>
-                                    <span>-${discountAmount.toLocaleString('es-CO')}</span>
+                            <div className="text-right">
+                                <p className="font-mono text-sm font-bold">Pedido #{id.slice(0, 8).toUpperCase()}</p>
+                                <p className="font-mono text-xs text-neutral-500">{new Date(created_at).toLocaleDateString()} {new Date(created_at).toLocaleTimeString()}</p>
+                                <div className={`mt-2 inline-block px-3 py-1 text-xs font-bold uppercase tracking-wider rounded border ${(status === 'processing' || status === 'completed')
+                                    ? 'bg-green-100 text-green-800 border-green-200'
+                                    : 'bg-neutral-100 text-neutral-800 border-neutral-200'
+                                    }`}>
+                                    {status === 'processing' || (status === 'pending' && order?.payment_id) ? 'Aprobado' : status === 'completed' ? 'Entregado' : 'Pendiente'}
                                 </div>
-                            )}
-                            <div className="flex justify-between text-sm font-mono text-neutral-600">
-                                <span>Envío</span>
-                                <span>
-                                    {shippingCost === 0 ? "Gratis" : `$${shippingCost.toLocaleString('es-CO')}`}
-                                </span>
-                            </div>
-                            <div className="flex justify-between text-xl font-serif font-bold border-t-2 border-black pt-4 mt-4">
-                                <span>Total</span>
-                                <span>${total.toLocaleString('es-CO')}</span>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Footer Warning */}
-                    <div className="mt-16 pt-8 border-t border-neutral-200 text-center">
-                        <p className="text-[10px] font-mono uppercase text-neutral-400">
-                            Gracias por tu compra. Si tienes alguna pregunta, contáctanos en Bmparfums.med@gmail.com
+                        {/* Customer & Shipping Info */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
+                            <div>
+                                <h3 className="text-xs font-mono uppercase tracking-widest text-neutral-500 mb-4 border-b border-neutral-200 pb-2">Cliente</h3>
+                                <p className="font-serif font-bold text-lg">{shipping_info.name}</p>
+                                <p className="font-mono text-sm text-neutral-600">{shipping_info.email}</p>
+                                <p className="font-mono text-sm text-neutral-600">{shipping_info.phone}</p>
+                            </div>
+                            <div>
+                                <h3 className="text-xs font-mono uppercase tracking-widest text-neutral-500 mb-4 border-b border-neutral-200 pb-2">Envío</h3>
+                                <p className="font-serif text-lg">{shipping_info.address}</p>
+                                {shipping_info.apartment && <p className="font-mono text-sm text-neutral-600">Apto: {shipping_info.apartment}</p>}
+                                <p className="font-mono text-sm text-neutral-600">{shipping_info.neighborhood}, {shipping_info.city}</p>
+                                <p className="font-mono text-sm text-neutral-600 uppercase">{shipping_info.department}, COLOMBIA</p>
+                            </div>
+                        </div>
+
+                        {/* Items Table */}
+                        <div className="mb-12 overflow-x-auto">
+                            <table className="w-full text-left font-mono text-sm">
+                                <thead>
+                                    <tr className="border-b-2 border-black">
+                                        <th className="py-3 uppercase tracking-widest text-neutral-500">Producto</th>
+                                        <th className="py-3 uppercase tracking-widest text-neutral-500 text-center">Cant.</th>
+                                        <th className="py-3 uppercase tracking-widest text-neutral-500 text-right">Precio</th>
+                                        <th className="py-3 uppercase tracking-widest text-neutral-500 text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-neutral-200">
+                                    {items.map((item: any, idx: number) => (
+                                        <tr key={idx}>
+                                            <td className="py-4">
+                                                <p className="font-bold">{item.name}</p>
+                                                <p className="text-[10px] uppercase text-neutral-400">{item.brand}</p>
+                                            </td>
+                                            <td className="py-4 text-center">{item.quantity}</td>
+                                            <td className="py-4 text-right">${item.price.toLocaleString('es-CO')}</td>
+                                            <td className="py-4 text-right font-bold">${(item.price * item.quantity).toLocaleString('es-CO')}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Totals */}
+                        <div className="flex justify-end">
+                            <div className="w-full md:w-1/2 space-y-3 font-mono">
+                                <div className="flex justify-between text-neutral-600">
+                                    <span>Subtotal</span>
+                                    <span>${itemsSubtotal.toLocaleString('es-CO')}</span>
+                                </div>
+                                {hasDiscount && (
+                                    <div className="flex justify-between text-green-600 font-bold">
+                                        <span>Descuento</span>
+                                        <span>-${discountAmount.toLocaleString('es-CO')}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between text-neutral-600">
+                                    <span>Envío</span>
+                                    <span>{shippingCost === 0 ? "Gratis" : `$${shippingCost.toLocaleString('es-CO')}`}</span>
+                                </div>
+                                <div className="flex justify-between text-2xl font-serif font-bold border-t-2 border-black pt-4 mt-4">
+                                    <span>Total</span>
+                                    <span>${total.toLocaleString('es-CO')}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer Warning */}
+                        <div className="mt-auto pt-16 text-center">
+                            <p className="text-[10px] font-mono uppercase text-neutral-400">
+                                Gracias por elegir BM PARFUMS. Tu factura ha sido generada exitosamente.
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="py-20 text-center border border-white/10 rounded-lg bg-neutral-900/30 backdrop-blur-sm">
+                        <ShoppingBag size={48} className="mx-auto text-neutral-700 mb-4" />
+                        <h2 className="text-xl font-serif text-neutral-400">Factura no disponible</h2>
+                        <p className="text-neutral-500 font-mono text-xs mt-2 uppercase tracking-widest">
+                            {status === 'failed' ? 'La compra no fue aprobada' : 'Esperando confirmación de pago'}
                         </p>
                     </div>
-
-                </div>
+                )}
             </div>
 
             <div className="print:hidden">

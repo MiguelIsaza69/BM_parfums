@@ -45,8 +45,8 @@ export async function POST(request: Request) {
                 </div>
                 
                 <div style="padding: 20px; border: 1px solid #eee;">
-                    <h2 style="color: #000; margin-top: 0;">¡Hemos recibido tu pedido, ${name}!</h2>
-                    <p>Tu pedido <strong>#${orderId.slice(0, 8).toUpperCase()}</strong> ha sido registrado exitosamente y se encuentra en estado <strong>PENDIENTE</strong>.</p>
+                    <h2 style="color: #000; margin-top: 0;">¡Tu pago ha sido confirmado, ${name}!</h2>
+                    <p>Tu pedido <strong>#${orderId.slice(0, 8).toUpperCase()}</strong> ha sido verificado y se encuentra en estado <strong>PROCESANDO</strong>.</p>
                     
                     <div style="background-color: #fcf8e3; border: 1px solid #faebcc; color: #8a6d3b; padding: 15px; border-radius: 4px; margin: 20px 0;">
                         <strong>Información importante:</strong> Tu pedido tardará de <strong>3 a 5 días hábiles</strong> en llegar a su destino. Te mantendremos informado sobre cualquier cambio en el estado de tu envío.

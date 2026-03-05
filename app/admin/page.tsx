@@ -18,7 +18,7 @@ export default function AdminDashboard() {
     const [activeSection, setActiveSection] = useState('dashboard');
     // const [toasts, setToasts] = useState<ToastMessage[]>([]); // Removed custom toast state
 
-    const [ordersTab, setOrdersTab] = useState<'pending' | 'processing' | 'completed'>('pending');
+    const [ordersTab, setOrdersTab] = useState<'pending' | 'processing' | 'completed' | 'failed'>('processing');
 
     // Stats State
     const [stats, setStats] = useState({
@@ -939,7 +939,7 @@ export default function AdminDashboard() {
                                                 )}
                                             </div>
 
-                                            <div className="absolute top-2 right-2 flex flex-col gap-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="absolute top-2 right-2 flex flex-col gap-2 z-30">
                                                 <button onClick={() => handleEditProduct(p)} className="bg-white text-black p-2 rounded-full hover:bg-gold shadow-xl hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={14} /></button>
                                                 <button
                                                     onClick={async (e) => {
@@ -1019,7 +1019,8 @@ export default function AdminDashboard() {
                 );
             case 'orders':
                 const filteredOrders = ordersList.filter(o => {
-                    if (ordersTab === 'completed') return o.status === 'completed' || o.status === 'cancelled';
+                    if ((ordersTab as string) === 'completed') return o.status === 'completed';
+                    if ((ordersTab as string) === 'failed') return o.status === 'failed' || o.status === 'cancelled';
                     return o.status === ordersTab;
                 });
 
@@ -1037,9 +1038,13 @@ export default function AdminDashboard() {
                                 Activos ({ordersList.filter(o => o.status === 'processing').length})
                                 {ordersTab === 'processing' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500" />}
                             </button>
-                            <button onClick={() => setOrdersTab('completed')} className={`px-4 py-3 text-sm font-mono uppercase transition-all relative ${ordersTab === 'completed' ? 'text-green-500 font-bold' : 'text-neutral-400 hover:text-white'}`}>
-                                Finalizados ({ordersList.filter(o => o.status === 'completed' || o.status === 'cancelled').length})
-                                {ordersTab === 'completed' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-green-500" />}
+                            <button onClick={() => setOrdersTab('completed')} className={`px-4 py-3 text-sm font-mono uppercase transition-all relative ${(ordersTab as string) === 'completed' ? 'text-green-500 font-bold' : 'text-neutral-400 hover:text-white'}`}>
+                                Entregados ({ordersList.filter(o => o.status === 'completed').length})
+                                {(ordersTab as string) === 'completed' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-green-500" />}
+                            </button>
+                            <button onClick={() => (setOrdersTab as any)('failed')} className={`px-4 py-3 text-sm font-mono uppercase transition-all relative ${(ordersTab as string) === 'failed' ? 'text-red-500 font-bold' : 'text-neutral-400 hover:text-white'}`}>
+                                Fallidos ({ordersList.filter(o => o.status === 'failed' || o.status === 'cancelled').length})
+                                {(ordersTab as string) === 'failed' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-500" />}
                             </button>
                         </div>
 
@@ -1080,8 +1085,9 @@ export default function AdminDashboard() {
                                                     </Link>
                                                     <button
                                                         onClick={() => handleSendInvoice(order)}
-                                                        disabled={isSendingEmail === order.id}
-                                                        className={`text-[10px] uppercase tracking-widest flex items-center gap-1 w-fit mt-1 px-2 py-1 rounded transition-colors ${sentOrders.includes(order.id) ? 'text-green-500 bg-green-500/10' : 'text-blue-400 hover:bg-blue-400/10'}`}
+                                                        disabled={isSendingEmail === order.id || (order.status !== 'processing' && order.status !== 'completed')}
+                                                        title={(order.status !== 'processing' && order.status !== 'completed') ? "Solo disponible para pedidos pagados" : ""}
+                                                        className={`text-[10px] uppercase tracking-widest flex items-center gap-1 w-fit mt-1 px-2 py-1 rounded transition-colors ${(order.status !== 'processing' && order.status !== 'completed' || isSendingEmail === order.id) ? 'opacity-30 cursor-not-allowed grayscale' : sentOrders.includes(order.id) ? 'text-green-500 bg-green-500/10' : 'text-blue-400 hover:bg-blue-400/10'}`}
                                                     >
                                                         {isSendingEmail === order.id ? (
                                                             <RefreshCcw size={10} className="animate-spin" />
@@ -1131,6 +1137,7 @@ export default function AdminDashboard() {
                                                     <option value="pending" className="bg-black text-yellow-500">Pendiente</option>
                                                     <option value="processing" className="bg-black text-blue-400">Activo / Procesando</option>
                                                     <option value="completed" className="bg-black text-green-500">Completado</option>
+                                                    <option value="failed" className="bg-black text-red-500">Fallido</option>
                                                     <option value="cancelled" className="bg-black text-red-500">Cancelado</option>
                                                 </select>
                                             </td>
@@ -1551,7 +1558,7 @@ export default function AdminDashboard() {
                             <div className="bg-neutral-900/50 border border-white/10 p-6 rounded-lg hover:border-gold/30 transition-colors">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
-                                        <p className="text-neutral-500 text-xs uppercase tracking-widest font-mono mb-1">Pedidos Pendientes</p>
+                                        <p className="text-neutral-500 text-xs uppercase tracking-widest font-mono mb-1">Pendientes (Iniciados)</p>
                                         <h3 className="text-4xl font-serif text-yellow-500">{stats.pending}</h3>
                                     </div>
                                     <div className="bg-yellow-500/10 p-3 rounded-full text-yellow-500"><Package size={24} /></div>
@@ -1562,7 +1569,7 @@ export default function AdminDashboard() {
                             <div className="bg-neutral-900/50 border border-white/10 p-6 rounded-lg hover:border-gold/30 transition-colors">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
-                                        <p className="text-neutral-500 text-xs uppercase tracking-widest font-mono mb-1">Pedidos Activos</p>
+                                        <p className="text-neutral-500 text-xs uppercase tracking-widest font-mono mb-1">Activos (Pagados)</p>
                                         <h3 className="text-4xl font-serif text-blue-400">{stats.active}</h3>
                                     </div>
                                     <div className="bg-blue-400/10 p-3 rounded-full text-blue-400"><RefreshCcw size={24} /></div>

@@ -130,6 +130,22 @@ export default function CheckoutPage() {
             }
         });
 
+        // Handle Payment Errors redirected from Confirmation page
+        const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const errorParam = searchParams?.get('error');
+        if (errorParam === 'payment_failed') {
+            sileo.error({
+                title: "Pago no completado",
+                description: "Tu transacción fue rechazada o cancelada. El pedido previo ha sido eliminado, puedes intentar nuevamente."
+            });
+            // Clear param without refreshing
+            if (typeof window !== 'undefined') {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('error');
+                window.history.replaceState({}, '', url.toString());
+            }
+        }
+
         return () => {
             subscription.unsubscribe();
         };
@@ -535,10 +551,13 @@ export default function CheckoutPage() {
                         if (transaction?.status === 'APPROVED') {
                             clearCart();
                             window.location.href = `/order-confirmation/${reference}`;
-                        } else if (transaction?.status === 'DECLINED' || transaction?.status === 'VOIDED') {
-                            // Opcional: Podríamos borrarlo aquí también si falló el pago en el widget
-                            // Pero como el usuario puede reintentar, lo dejamos PENDING por ahora.
-                            console.log("Pago no aprobado en el widget.");
+                        } else if (transaction?.status === 'DECLINED' || transaction?.status === 'VOIDED' || transaction?.status === 'ERROR') {
+                            console.log("Pago no aprobado, eliminando registro de pedido...");
+                            await deleteOrder();
+                            sileo.error({
+                                title: "Pago declinado",
+                                description: "Tu pago no pudo ser procesado. El pedido ha sido cancelado."
+                            });
                         }
                     });
 
