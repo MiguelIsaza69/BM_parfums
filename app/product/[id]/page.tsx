@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ShoppingCart, ArrowLeft, Search } from "lucide-react";
+import { ShoppingCart, ArrowLeft, Search, Wind, Heart, Layers, Clock, Waves, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -19,6 +19,74 @@ export default function ProductDetailsPage() {
     const [mainImage, setMainImage] = useState<string>("/placeholder.jpg");
     const [categories, setCategories] = useState<any[]>([]);
     const [genderName, setGenderName] = useState<string>("");
+
+    // Icon mapping for perfume characteristics
+    const iconMap: Record<string, React.ReactNode> = {
+        "Salida": <Wind size={20} className="text-gold" />,
+        "Corazón": <Heart size={20} className="text-gold" />,
+        "Fondo": <Layers size={20} className="text-gold" />,
+        "Duración": <Clock size={20} className="text-gold" />,
+        "Proyección": <Waves size={20} className="text-gold" />,
+        "Estilo": <Sparkles size={20} className="text-gold" />
+    };
+
+    const renderDescription = (text: string) => {
+        if (!text) return "Sin descripción disponible para este producto exclusivo.";
+
+        const lines = text.split('\n');
+        return (
+            <div className="space-y-2">
+                {lines.map((line, index) => {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine) return <div key={index} className="h-4" />;
+
+                    // Special Header: Perfil olfativo
+                    if (trimmedLine.toLowerCase().includes('perfil olfativo')) {
+                        return (
+                            <div key={index} className="mt-12 mb-6">
+                                <h4 className="text-gold font-mono uppercase tracking-[0.3em] text-xs flex items-center gap-4">
+                                    <span className="whitespace-nowrap">{trimmedLine}</span>
+                                    <div className="h-px flex-1 bg-gold/20" />
+                                </h4>
+                            </div>
+                        );
+                    }
+
+                    // Look for key: value pairs
+                    const colonIndex = trimmedLine.indexOf(':');
+                    if (colonIndex !== -1) {
+                        const key = trimmedLine.substring(0, colonIndex).trim();
+                        const value = trimmedLine.substring(colonIndex + 1).trim();
+
+                        // Check if key is in our icon map
+                        const icon = iconMap[key];
+                        if (icon) {
+                            return (
+                                <div key={index} className="flex items-start gap-4 py-3 group">
+                                    <div className="mt-1 p-2.5 bg-neutral-900 border border-white/5 rounded-full group-hover:border-gold/30 transition-colors shadow-xl">
+                                        {icon}
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-neutral-500 font-mono text-[10px] uppercase tracking-widest mb-1">{key}</span>
+                                        <span className="text-white text-lg md:text-xl font-sans font-light leading-snug">
+                                            {value}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        }
+                    }
+
+                    // Default text line
+                    return (
+                        <p key={index} className="text-neutral-300 font-sans font-light leading-relaxed text-lg md:text-xl">
+                            {line}
+                        </p>
+                    );
+                })}
+            </div>
+        );
+    };
 
     // Fetch Product Details
     useEffect(() => {
@@ -174,13 +242,6 @@ export default function ProductDetailsPage() {
                             )}
                         </div>
 
-                        <div className="bg-white/5 border border-white/10 p-6 mb-8 backdrop-blur-sm">
-                            <h3 className="text-xs font-mono uppercase text-neutral-400 mb-2 tracking-widest">Descripción</h3>
-                            <p className="text-neutral-300 font-light leading-relaxed text-sm md:text-base">
-                                {product.description || "Sin descripción disponible para este producto exclusivo."}
-                            </p>
-                        </div>
-
                         {/* Metadata */}
                         <div className="grid grid-cols-2 gap-6 mb-8 font-mono">
                             <div>
@@ -239,6 +300,17 @@ export default function ProductDetailsPage() {
                                 Encuentra otros productos basados en {categories.length > 0 ? categories[0].name : "su categoría"} y género.
                             </p>
                         </div>
+                    </div>
+                </div>
+
+                {/* Description Section */}
+                <div className="mt-20 pt-16 border-t border-white/10">
+                    <div className="max-w-5xl">
+                        <h3 className="text-sm font-mono uppercase text-gold mb-8 tracking-[0.3em] flex items-center gap-6">
+                            <span>Descripción</span>
+                            <div className="h-px flex-1 bg-gold/20" />
+                        </h3>
+                        {renderDescription(product.description)}
                     </div>
                 </div>
             </div>
