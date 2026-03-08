@@ -50,20 +50,31 @@ export default function AdminDashboard() {
 
             if (fetchError || !order) throw new Error("No se pudo obtener el pedido");
 
-            // 2. If status becomes 'completed' and not already deducted, do it now
-            if (newStatus === 'completed' && !order.stock_deducted) {
+            // 2. If status becomes 'processing' (Activo) or 'completed' and not already deducted, do it now
+            // Note: We deduct on 'processing' to reserve stock once payment is confirmed
+            if ((newStatus === 'processing' || newStatus === 'completed') && !order.stock_deducted) {
                 const items = order.items || [];
                 for (const item of items) {
+                    const quality = item.quality || '1.1';
+                    const isOriginal = quality === 'Original';
+                    const stockColumn = isOriginal ? 'stock_original' : 'stock';
+
                     const { data: product } = await supabase
                         .from('products')
-                        .select('stock')
+                        .select(`id, stock, stock_original`)
                         .eq('id', item.id)
                         .single();
 
                     if (product) {
-                        const newStock = Math.max(0, (product.stock || 0) - item.quantity);
-                        const updateData: any = { stock: newStock };
-                        if (newStock <= 0) updateData.is_active = false;
+                        const currentStock = isOriginal ? (product.stock_original || 0) : (product.stock || 0);
+                        const newStock = Math.max(0, currentStock - item.quantity);
+
+                        const updateData: any = { [stockColumn]: newStock };
+
+                        // Optional: Hide product if BOTH stocks are 0? 
+                        // For now, only hide if the specific one bought is 0 and it doesn't have the other or the other is also 0
+                        // Keeping it simple: don't auto-hide yet to avoid confusion with multi-variants
+                        // if (newStock <= 0) updateData.is_active = false;
 
                         await supabase.from('products').update(updateData).eq('id', item.id);
                     }
@@ -77,7 +88,7 @@ export default function AdminDashboard() {
 
             if (updateError) throw updateError;
 
-            setOrdersList(prev => prev.map(o => o.id === id ? { ...o, status: newStatus, stock_deducted: newStatus === 'completed' ? true : o.stock_deducted } : o));
+            setOrdersList(prev => prev.map(o => o.id === id ? { ...o, status: newStatus, stock_deducted: (newStatus === 'processing' || newStatus === 'completed') ? true : o.stock_deducted } : o));
             addToast("Estado actualizado correctamente", "success");
 
         } catch (error: any) {
@@ -530,7 +541,11 @@ export default function AdminDashboard() {
         is_active: true,
         is_favorite: false,
         discount_percentage: "" as string | number,
-        stock: 1 // Default to 1 for new products
+        stock: 1, // Default to 1 for new products
+        has_original: false,
+        price_original: "" as string | number,
+        discount_percentage_original: "" as string | number,
+        stock_original: 0
     });
     const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false); // New state for form visibility
@@ -576,7 +591,8 @@ export default function AdminDashboard() {
 
     const resetProductForm = () => {
         setProductForm({
-            id: null, name: "", brand_id: "", gender_id: "", category_ids: [""], description: "", price: "", volume_ml: "", quality: "Inspiración", is_active: true, is_favorite: false, discount_percentage: "", stock: 1
+            id: null, name: "", brand_id: "", gender_id: "", category_ids: [""], description: "", price: "", volume_ml: "", quality: "1.1", is_active: true, is_favorite: false, discount_percentage: "", stock: 1,
+            has_original: false, price_original: "", discount_percentage_original: "", stock_original: 0
         });
         setImagesText("");
         setIsFormOpen(false); // Close form on reset
@@ -632,7 +648,11 @@ export default function AdminDashboard() {
                 is_favorite: productForm.is_favorite,
                 discount_percentage: Number(productForm.discount_percentage) || 0,
                 stock: Number(productForm.stock) || 0,
-                images: cleanImages
+                images: cleanImages,
+                has_original: productForm.has_original,
+                price_original: productForm.has_original ? Number(productForm.price_original) : null,
+                discount_percentage_original: productForm.has_original ? Number(productForm.discount_percentage_original) : null,
+                stock_original: productForm.has_original ? Number(productForm.stock_original) : null
             };
 
             console.log("Saving payload via API:", payload);
@@ -688,9 +708,9 @@ export default function AdminDashboard() {
         setProductForm({
             id: p.id,
             name: p.name,
-            brand_id: p.brand_id,
-            gender_id: p.gender_id,
-            category_ids: p.category_ids && p.category_ids.length ? p.category_ids : [""],
+            brand_id: p.brand_id || "",
+            gender_id: p.gender_id || "",
+            category_ids: (p.category_ids && p.category_ids.length) ? p.category_ids.map((id: any) => id || "") : [""],
             description: p.description || "",
             price: p.price,
             volume_ml: p.volume_ml || "",
@@ -698,7 +718,11 @@ export default function AdminDashboard() {
             is_active: p.is_active ?? true,
             is_favorite: p.is_favorite ?? false,
             discount_percentage: p.discount_percentage || "",
-            stock: p.stock ?? 0
+            stock: p.stock ?? 0,
+            has_original: p.has_original ?? false,
+            price_original: p.price_original || "",
+            discount_percentage_original: p.discount_percentage_original || "",
+            stock_original: p.stock_original ?? 0
         });
         // Handle images (text, array, or JSON string)
         let actualImages: string[] = [];
@@ -813,12 +837,12 @@ export default function AdminDashboard() {
                                     <div className="space-y-4">
                                         <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Nombre</label><input type="text" value={productForm.name} onChange={e => handleProductFormChange('name', e.target.value)} className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded" /></div>
                                         <div className="grid grid-cols-2 gap-4">
-                                            <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Marca</label><select value={productForm.brand_id} onChange={e => handleProductFormChange('brand_id', e.target.value)} className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded appearance-none"><option value="">Select...</option>{brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
-                                            <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Género</label><select value={productForm.gender_id} onChange={e => handleProductFormChange('gender_id', e.target.value)} className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded appearance-none"><option value="">Select...</option>{genders.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div>
+                                            <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Marca</label><select value={productForm.brand_id || ""} onChange={e => handleProductFormChange('brand_id', e.target.value)} className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded appearance-none"><option value="">Select...</option>{brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
+                                            <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Género</label><select value={productForm.gender_id || ""} onChange={e => handleProductFormChange('gender_id', e.target.value)} className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded appearance-none"><option value="">Select...</option>{genders.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div>
                                         </div>
                                         <div className="flex flex-col gap-2">
                                             <div className="flex justify-between items-center"><label className="text-xs font-mono text-neutral-500 uppercase">Categorías (Max 4)</label><button type="button" onClick={addCategoryField} className="text-[10px] text-gold uppercase">+ Agregar</button></div>
-                                            <div className="space-y-2">{productForm.category_ids.map((catId, index) => (<div key={index} className="flex gap-2"><select value={catId} onChange={(e) => handleProductCategoryChange(index, e.target.value)} className="flex-1 bg-black border border-white/20 p-2 text-sm text-white focus:border-gold outline-none font-mono rounded appearance-none"><option value="">Select...</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>{productForm.category_ids.length > 1 && (<button type="button" onClick={() => removeCategoryField(index)} className="text-red-500"><X size={14} /></button>)}</div>))}</div>
+                                            <div className="space-y-2">{productForm.category_ids.map((catId, index) => (<div key={index} className="flex gap-2"><select value={catId || ""} onChange={(e) => handleProductCategoryChange(index, e.target.value)} className="flex-1 bg-black border border-white/20 p-2 text-sm text-white focus:border-gold outline-none font-mono rounded appearance-none"><option value="">Select...</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>{productForm.category_ids.length > 1 && (<button type="button" onClick={() => removeCategoryField(index)} className="text-red-500"><X size={14} /></button>)}</div>))}</div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Precio</label><input type="number" value={productForm.price} onChange={e => handleProductFormChange('price', e.target.value)} className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded" /></div>
@@ -832,7 +856,7 @@ export default function AdminDashboard() {
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="flex flex-col gap-2">
-                                                <label className="text-xs font-mono text-neutral-500 uppercase">Stock Disponible</label>
+                                                <label className="text-xs font-mono text-neutral-400 uppercase">Stock 1.1</label>
                                                 <input
                                                     type="number"
                                                     value={productForm.stock}
@@ -842,7 +866,7 @@ export default function AdminDashboard() {
                                                 />
                                             </div>
                                             <div className="flex flex-col gap-2">
-                                                <label className="text-xs font-mono text-neutral-500 uppercase">Descuento (%)</label>
+                                                <label className="text-xs font-mono text-neutral-400 uppercase">Descuento 1.1 (%)</label>
                                                 <input
                                                     type="number"
                                                     value={productForm.discount_percentage}
@@ -851,6 +875,56 @@ export default function AdminDashboard() {
                                                     className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded"
                                                 />
                                             </div>
+                                        </div>
+
+                                        {/* CALIDAD ORIGINAL SECTION */}
+                                        <div className="bg-neutral-800/40 p-4 rounded border border-gold/10 space-y-4">
+                                            <div className="flex items-center gap-4">
+                                                <input
+                                                    type="checkbox"
+                                                    id="has_original_check"
+                                                    checked={productForm.has_original}
+                                                    onChange={e => handleProductFormChange('has_original', e.target.checked)}
+                                                    className="w-5 h-5 accent-gold cursor-pointer"
+                                                />
+                                                <label htmlFor="has_original_check" className="text-sm font-bold font-mono text-gold cursor-pointer uppercase tracking-widest">
+                                                    ¿Tiene Calidad Original?
+                                                </label>
+                                            </div>
+
+                                            {productForm.has_original && (
+                                                <div className="grid grid-cols-1 gap-4 animate-in slide-in-from-top-2 duration-300">
+                                                    <div className="flex flex-col gap-2">
+                                                        <label className="text-[10px] font-mono text-neutral-500 uppercase">Precio Original</label>
+                                                        <input
+                                                            type="number"
+                                                            value={productForm.price_original}
+                                                            onChange={e => handleProductFormChange('price_original', e.target.value)}
+                                                            className="bg-black border border-white/20 p-2 text-sm text-white focus:border-gold outline-none font-mono rounded"
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="flex flex-col gap-2">
+                                                            <label className="text-[10px] font-mono text-neutral-500 uppercase">Stock Original</label>
+                                                            <input
+                                                                type="number"
+                                                                value={productForm.stock_original}
+                                                                onChange={e => handleProductFormChange('stock_original', e.target.value)}
+                                                                className="bg-black border border-white/20 p-2 text-sm text-white focus:border-gold outline-none font-mono rounded"
+                                                            />
+                                                        </div>
+                                                        <div className="flex flex-col gap-2">
+                                                            <label className="text-[10px] font-mono text-neutral-500 uppercase">Desc. Original (%)</label>
+                                                            <input
+                                                                type="number"
+                                                                value={productForm.discount_percentage_original}
+                                                                onChange={e => handleProductFormChange('discount_percentage_original', e.target.value)}
+                                                                className="bg-black border border-white/20 p-2 text-sm text-white focus:border-gold outline-none font-mono rounded"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -965,10 +1039,20 @@ export default function AdminDashboard() {
                                             <div className="flex justify-center gap-1 mb-1"><span className="text-[9px] text-neutral-500 uppercase tracking-widest">{p.brands?.name || '...'}</span></div>
                                             <h3 className="text-sm font-serif text-white mb-1 truncate">{p.name}</h3>
                                             <div className="flex items-center justify-center gap-2 mb-2">
-                                                <p className="text-gold font-mono text-xs font-bold">${p.price?.toLocaleString()}</p>
-                                                <span className={`text-[9px] px-2 py-0.5 rounded font-mono ${(p.stock || 0) > 0 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                                    Stock: {p.stock || 0}
-                                                </span>
+                                                <div className="flex flex-col items-center">
+                                                    <p className="text-gold font-mono text-[9px] font-bold">${p.price?.toLocaleString()} <span className="text-neutral-500">(1.1)</span></p>
+                                                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono ${(p.stock || 0) > 0 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                        S1.1: {p.stock || 0}
+                                                    </span>
+                                                </div>
+                                                {p.has_original && (
+                                                    <div className="flex flex-col items-center border-l border-white/10 pl-2">
+                                                        <p className="text-gold font-mono text-[9px] font-bold">${p.price_original?.toLocaleString()} <span className="text-neutral-500">(O)</span></p>
+                                                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono ${(p.stock_original || 0) > 0 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                            SO: {p.stock_original || 0}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                             {p.is_favorite && (
                                                 <div className="flex justify-center">

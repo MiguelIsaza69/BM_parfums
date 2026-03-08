@@ -30,7 +30,7 @@ export async function POST(request: Request) {
         const itemsHtml = safeItems.map((item: any) => `
             <tr>
                 <td style="padding: 10px; border-bottom: 1px solid #eee;">
-                    <strong>${item.name}</strong><br/>
+                    <strong>${item.name} (${item.quality || '1.1'})</strong><br/>
                     <span style="font-size: 12px; color: #666;">${item.brand}</span>
                 </td>
                 <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>

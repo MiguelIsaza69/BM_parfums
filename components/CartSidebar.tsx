@@ -79,7 +79,7 @@ export function CartSidebar() {
                     ) : (
                         items.map((item, idx) => (
                             <div
-                                key={item.id}
+                                key={`${item.id}-${item.quality}`}
                                 className={`flex gap-4 items-center bg-neutral-900/40 p-3 sm:p-4 border border-white/5 group hover:border-gold/30 transition-all duration-300 ${isAnimating ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'}`}
                                 style={{
                                     transitionDelay: isAnimating ? `${Math.min(idx * 40 + 50, 300)}ms` : '0ms'
@@ -95,15 +95,36 @@ export function CartSidebar() {
                                     />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-[9px] text-gold/60 font-mono tracking-[2px] mb-1 uppercase truncate">{item.brand}</p>
+                                    <div className="flex justify-between items-start mb-1">
+                                        <p className="text-[9px] text-gold/60 font-mono tracking-[2px] uppercase truncate">{item.brand}</p>
+                                        <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded-sm border ${item.quality === 'Original' ? 'border-gold text-gold bg-gold/5' : 'border-neutral-700 text-neutral-400'}`}>
+                                            {item.quality}
+                                        </span>
+                                    </div>
                                     <h4 className="text-sm font-serif text-white mb-2 leading-tight truncate">{item.name}</h4>
-                                    <div className="flex justify-between items-center">
-                                        <p className="text-white font-mono text-sm font-bold">${(item.price * item.quantity).toLocaleString('es-CO')}</p>
+                                    <div className="flex justify-between items-end">
+                                        <div className="flex flex-col gap-0.5">
+                                            {item.originalPrice && (
+                                                <span className="text-[10px] text-neutral-500 line-through font-mono">
+                                                    ${(item.originalPrice * item.quantity).toLocaleString('es-CO')}
+                                                </span>
+                                            )}
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-white font-mono text-sm font-bold">
+                                                    ${(item.price * item.quantity).toLocaleString('es-CO')}
+                                                </p>
+                                                {item.discount && (
+                                                    <span className="text-[9px] bg-red-500/10 text-red-500 border border-red-500/20 px-1 rounded-sm font-mono font-bold">
+                                                        -{item.discount}%
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
 
                                         {/* Quantity Controls */}
                                         <div className="flex items-center gap-3 bg-black/50 border border-white/10 rounded-full px-3 py-1 scale-90 sm:scale-100 origin-right transition-transform">
                                             <button
-                                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                                onClick={() => updateQuantity(item.id, item.quality, item.quantity - 1)}
                                                 className="text-neutral-500 hover:text-gold transition-colors disabled:opacity-20"
                                                 disabled={item.quantity <= 1}
                                             >
@@ -111,7 +132,7 @@ export function CartSidebar() {
                                             </button>
                                             <span className="text-[10px] font-mono w-4 text-center text-white">{item.quantity}</span>
                                             <button
-                                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                                onClick={() => updateQuantity(item.id, item.quality, item.quantity + 1)}
                                                 className="text-neutral-500 hover:text-gold transition-colors"
                                             >
                                                 <Plus size={12} />
@@ -120,7 +141,7 @@ export function CartSidebar() {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => removeItem(item.id)}
+                                    onClick={() => removeItem(item.id, item.quality)}
                                     className="text-neutral-700 hover:text-red-500 transition-colors p-2"
                                     aria-label="Eliminar producto"
                                 >

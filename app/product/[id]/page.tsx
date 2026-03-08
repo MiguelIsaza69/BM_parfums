@@ -19,6 +19,7 @@ export default function ProductDetailsPage() {
     const [mainImage, setMainImage] = useState<string>("/placeholder.jpg");
     const [categories, setCategories] = useState<any[]>([]);
     const [genderName, setGenderName] = useState<string>("");
+    const [selectedQuality, setSelectedQuality] = useState<string>("1.1");
 
     // Icon mapping for perfume characteristics
     const iconMap: Record<string, React.ReactNode> = {
@@ -122,6 +123,9 @@ export default function ProductDetailsPage() {
 
                     setProduct(data);
                     setGenderName(data.genders?.name || "");
+                    // Default to Original if base quality is not available or if Original is the only one (though unlikely here)
+                    const initialQuality = data.quality === 'Original' ? 'Original' : '1.1';
+                    setSelectedQuality(initialQuality);
 
                     // Fetch Category Names (since we only have IDs in product)
                     if (data.category_ids && data.category_ids.length > 0) {
@@ -143,7 +147,7 @@ export default function ProductDetailsPage() {
     }, [params.id]);
 
     const handleAddToCart = () => {
-        addItem(product);
+        addItem(product, 1, selectedQuality);
     };
 
     const handleSearchSimilar = () => {
@@ -180,6 +184,12 @@ export default function ProductDetailsPage() {
             </div>
         );
     }
+
+    // Dynamic price calculation
+    const isOriginal = selectedQuality === 'Original';
+    const currentPrice = isOriginal ? (product.price_original || 0) : (product.price || 0);
+    const currentDiscount = isOriginal ? (product.discount_percentage_original || 0) : (product.discount_percentage || 0);
+    const currentStock = isOriginal ? (product.stock_original || 0) : (product.stock || 0);
 
     return (
         <main className="min-h-screen bg-black text-white flex flex-col">
@@ -221,26 +231,53 @@ export default function ProductDetailsPage() {
                         </h1>
 
                         <div className="flex flex-col mb-8">
-                            {product.discount_percentage > 0 ? (
+                            {currentDiscount > 0 ? (
                                 <div className="flex flex-col gap-1">
                                     <div className="flex items-center gap-3">
                                         <p className="text-3xl font-mono text-gold font-bold">
-                                            ${Number(product.price * (1 - product.discount_percentage / 100)).toLocaleString('es-CO')}
+                                            ${Number(currentPrice * (1 - currentDiscount / 100)).toLocaleString('es-CO')}
                                         </p>
                                         <span className="bg-gold text-black text-xs font-bold px-2 py-1 rounded-sm">
-                                            {product.discount_percentage}% OFF
+                                            {currentDiscount}% OFF
                                         </span>
                                     </div>
                                     <p className="text-xl font-mono text-neutral-500 line-through">
-                                        ${Number(product.price).toLocaleString('es-CO')}
+                                        ${Number(currentPrice).toLocaleString('es-CO')}
                                     </p>
                                 </div>
                             ) : (
                                 <p className="text-3xl font-mono text-white/90">
-                                    ${Number(product.price).toLocaleString('es-CO')}
+                                    ${Number(currentPrice).toLocaleString('es-CO')}
                                 </p>
                             )}
+
+
                         </div>
+
+                        {/* Quality Selector */}
+                        {product.has_original && (
+                            <div className="mb-8">
+                                <span className="block uppercase tracking-widest text-neutral-500 text-xs mb-4 font-mono">Seleccionar Calidad</span>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => setSelectedQuality('1.1')}
+                                        className={`flex-1 py-3 px-4 border transition-all font-mono text-xs tracking-widest uppercase ${selectedQuality === '1.1'
+                                            ? 'border-gold text-gold bg-gold/5 font-bold'
+                                            : 'border-white/20 text-white hover:border-white/40 bg-white/5'}`}
+                                    >
+                                        Calidad 1.1
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedQuality('Original')}
+                                        className={`flex-1 py-3 px-4 border transition-all font-mono text-xs tracking-widest uppercase ${selectedQuality === 'Original'
+                                            ? 'border-gold text-gold bg-gold/5 font-bold'
+                                            : 'border-white/20 text-white hover:border-white/40 bg-white/5'}`}
+                                    >
+                                        Original
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Metadata */}
                         <div className="grid grid-cols-2 gap-6 mb-8 font-mono">
@@ -254,14 +291,13 @@ export default function ProductDetailsPage() {
                                     {categories.map(c => c.name).join(", ") || "General"}
                                 </span>
                             </div>
-                            {/* Standard metadata usually doesn't change, but good to show something */}
                             <div>
                                 <span className="block uppercase tracking-widest text-neutral-500 text-xs mb-2">Volumen</span>
                                 <span className="text-white text-lg">{product.volume_ml ? `${product.volume_ml} ml` : "N/A"}</span>
                             </div>
                             <div>
-                                <span className="block uppercase tracking-widest text-neutral-500 text-xs mb-2">Calidad</span>
-                                <span className="text-white text-lg">{product.quality || "Premium"}</span>
+                                <span className="block uppercase tracking-widest text-neutral-500 text-xs mb-2">Calidad Actual</span>
+                                <span className="text-white text-lg">{selectedQuality}</span>
                             </div>
                         </div>
 
@@ -269,15 +305,16 @@ export default function ProductDetailsPage() {
                         <div className="flex flex-col sm:flex-row gap-4 mb-12">
                             <button
                                 onClick={handleAddToCart}
-                                className="flex-1 bg-gold text-black font-bold uppercase py-4 px-8 hover:bg-white transition-colors flex items-center justify-center gap-2 font-mono tracking-widest"
+                                disabled={currentStock <= 0}
+                                className={`flex-1 font-bold uppercase py-4 px-8 transition-colors flex items-center justify-center gap-2 font-mono tracking-widest ${currentStock > 0 ? 'bg-gold text-black hover:bg-white' : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'}`}
                             >
                                 <ShoppingCart size={18} />
-                                Agregar al Carrito
+                                {currentStock > 0 ? 'Agregar al Carrito' : 'Agotado'}
                             </button>
 
                             <Link href="/catalogo" className="flex-1">
-                                <button className="w-full border border-white/20 text-white font-mono uppercase py-4 px-8 hover:border-gold hover:text-gold transition-colors tracking-widest">
-                                    Volver al Catálogo
+                                <button className="w-full h-full border border-white/20 text-white font-mono uppercase py-4 px-8 hover:border-gold hover:text-gold transition-colors tracking-widest">
+                                    Seguir Comprando
                                 </button>
                             </Link>
                         </div>
@@ -296,9 +333,6 @@ export default function ProductDetailsPage() {
                                     <Search size={16} />
                                 </div>
                             </button>
-                            <p className="mt-2 text-[10px] text-neutral-500 font-mono">
-                                Encuentra otros productos basados en {categories.length > 0 ? categories[0].name : "su categoría"} y género.
-                            </p>
                         </div>
                     </div>
                 </div>

@@ -9,14 +9,17 @@ export type CartItem = {
     image: string;
     brand: string;
     quantity: number;
+    quality: string;
     ml?: number;
+    originalPrice?: number;
+    discount?: number;
 };
 
 type CartContextType = {
     items: CartItem[];
-    addItem: (product: any, quantity?: number) => void;
-    removeItem: (id: string) => void;
-    updateQuantity: (id: string, newQuantity: number) => void;
+    addItem: (product: any, quantity?: number, selectedQuality?: string) => void;
+    removeItem: (id: string, quality: string) => void;
+    updateQuantity: (id: string, quality: string, newQuantity: number) => void;
     clearCart: () => void;
     total: number;
     count: number;
@@ -51,12 +54,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
     }, [items, isLoaded]);
 
-    const addItem = (product: any, quantity = 1) => {
+    const addItem = (product: any, quantity = 1, selectedQuality?: string) => {
         setItems(current => {
-            const existing = current.find(item => item.id === product.id);
+            // Default to product's base quality if not provided
+            const quality = selectedQuality || product.quality || '1.1';
+            const isOriginal = quality === 'Original';
+
+            // Check if this specific variant is already in cart
+            const existing = current.find(item => item.id === product.id && item.quality === quality);
+
             if (existing) {
                 return current.map(item =>
-                    item.id === product.id
+                    (item.id === product.id && item.quality === quality)
                         ? { ...item, quantity: item.quantity + quantity }
                         : item
                 );
@@ -66,7 +75,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
             let mainImage = "/placeholder.jpg";
             if (Array.isArray(product.images) && product.images.length > 0) mainImage = product.images[0];
             else if (typeof product.images === 'string') {
-                // Try to handle potentially malformed string arrays or single strings
                 const val = product.images.trim();
                 if (val.startsWith('[') && val.endsWith(']')) {
                     try {
@@ -78,33 +86,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 }
             }
 
-            const hasDiscount = product.discount_percentage > 0;
-            const finalPrice = hasDiscount
-                ? Number(product.price) * (1 - product.discount_percentage / 100)
-                : Number(product.price);
+            // Determine Price based on quality
+            let basePrice = Number(product.price);
+            let discount = Number(product.discount_percentage) || 0;
+
+            if (isOriginal) {
+                basePrice = Number(product.price_original) || basePrice;
+                discount = Number(product.discount_percentage_original) || 0;
+            }
+
+            const finalPrice = discount > 0
+                ? basePrice * (1 - discount / 100)
+                : basePrice;
 
             const newItem: CartItem = {
                 id: product.id,
                 name: product.name,
                 price: finalPrice,
                 image: mainImage,
-                brand: product.brands?.name || product.brandName || "BM", // Handle both detailed and flattened structures
+                brand: product.brands?.name || product.brandName || "BM",
                 quantity,
-                ml: product.volume_ml
+                quality,
+                ml: product.volume_ml,
+                originalPrice: discount > 0 ? basePrice : undefined,
+                discount: discount > 0 ? discount : undefined
             };
             return [...current, newItem];
         });
-        setIsOpen(true); // Open cart when adding
+        setIsOpen(true);
     };
 
-    const removeItem = (id: string) => {
-        setItems(current => current.filter(item => item.id !== id));
+    const removeItem = (id: string, quality: string) => {
+        setItems(current => current.filter(item => !(item.id === id && item.quality === quality)));
     };
 
-    const updateQuantity = (id: string, newQuantity: number) => {
+    const updateQuantity = (id: string, quality: string, newQuantity: number) => {
         if (newQuantity < 1) return;
         setItems(current => current.map(item =>
-            item.id === id ? { ...item, quantity: newQuantity } : item
+            (item.id === id && item.quality === quality) ? { ...item, quantity: newQuantity } : item
         ));
     };
 

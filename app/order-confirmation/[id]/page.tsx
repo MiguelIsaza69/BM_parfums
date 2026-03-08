@@ -301,7 +301,7 @@ export default function OrderConfirmationPage() {
                                     {items.map((item: any, idx: number) => (
                                         <tr key={idx}>
                                             <td className="py-4">
-                                                <p className="font-bold">{item.name}</p>
+                                                <p className="font-bold">{item.name} <span className="text-[10px] text-neutral-500 font-mono">({item.quality || '1.1'})</span></p>
                                                 <p className="text-[10px] uppercase text-neutral-400">{item.brand}</p>
                                             </td>
                                             <td className="py-4 text-center">{item.quantity}</td>

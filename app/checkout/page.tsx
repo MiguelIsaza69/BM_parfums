@@ -900,10 +900,22 @@ export default function CheckoutPage() {
                                         </div>
                                         <div>
                                             <p className="text-[10px] uppercase font-mono tracking-widest text-neutral-400">{item.brand}</p>
-                                            <p className="text-sm font-serif line-clamp-1">{item.name}</p>
-                                            <p className="text-xs font-mono text-gold mt-1">
-                                                {item.quantity} x ${item.price.toLocaleString('es-CO')}
-                                            </p>
+                                            <p className="text-sm font-serif line-clamp-1">{item.name} <span className="text-[10px] text-neutral-500 font-mono italic">({item.quality || '1.1'})</span></p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <p className="text-xs font-mono text-gold">
+                                                    {item.quantity} x ${item.price.toLocaleString('es-CO')}
+                                                </p>
+                                                {item.originalPrice && (
+                                                    <span className="text-[9px] text-neutral-500 line-through font-mono">
+                                                        ${(item.originalPrice).toLocaleString('es-CO')}
+                                                    </span>
+                                                )}
+                                                {item.discount && (
+                                                    <span className="text-[8px] text-red-400 font-mono font-bold">
+                                                        -{item.discount}%
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

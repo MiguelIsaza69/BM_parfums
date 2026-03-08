@@ -8,6 +8,7 @@ import { ChevronDown, Check, ChevronLeft, ChevronRight, Filter, ShoppingCart } f
 import { supabase } from "@/lib/supabase";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
+import { ProductCard } from "@/components/ProductCard";
 
 function CatalogContent() {
     const searchParams = useSearchParams();
@@ -446,73 +447,8 @@ function CatalogContent() {
                         <div className="text-center py-20 font-mono text-neutral-500">No se encontraron productos.</div>
                     ) : (
                         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
-                            {paginatedProducts.map((product) => (
-                                <div key={product.id} className="group relative border border-white/10 p-6 hover:border-gold/50 transition-colors bg-neutral-900/20">
-                                    <div className="relative h-[250px] w-full flex items-center justify-center mb-6 overflow-hidden p-4">
-                                        <Image
-                                            src={product.mainImage}
-                                            alt={product.name}
-                                            fill
-                                            className="object-contain w-full h-full group-hover:scale-110 transition-transform duration-500"
-                                        />
-
-                                        {product.discount_percentage > 0 && (
-                                            <div className="absolute top-0 right-0 bg-gold text-black font-mono text-[10px] font-bold px-3 py-1 z-20 shadow-lg">
-                                                -{product.discount_percentage}% OFF
-                                            </div>
-                                        )}
-
-                                        {/* Hover Overlay - Desktop Only */}
-                                        <div className="absolute inset-0 bg-black/95 flex flex-col justify-center items-center text-center p-6 opacity-0 xl:group-hover:opacity-100 transition-all duration-300 translate-y-4 xl:group-hover:translate-y-0 z-10 hidden xl:flex">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); addItem(product); }}
-                                                className="bg-gold text-black font-bold uppercase py-2 px-6 min-w-[140px] text-xs hover:bg-white transition-colors flex items-center gap-2 mb-2 w-auto justify-center"
-                                            >
-                                                <ShoppingCart size={14} />
-                                                AGREGAR
-                                            </button>
-                                            <button
-                                                onClick={() => router.push(`/product/${product.id}`)}
-                                                className="text-white border border-white/30 font-mono uppercase py-2 px-4 text-[10px] hover:border-gold hover:text-gold transition-colors"
-                                            >
-                                                Ver Detalles
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        className="flex flex-col items-center text-center cursor-pointer"
-                                        onClick={() => router.push(`/product/${product.id}`)}
-                                    >
-                                        <p className="text-[10px] text-muted mb-1 font-mono tracking-widest uppercase">{product.brandName}</p>
-                                        <h3 className="text-lg font-serif mb-2 line-clamp-1">{product.name}</h3>
-                                        <div className="flex flex-col items-center">
-                                            {product.discount_percentage > 0 ? (
-                                                <>
-                                                    <p className="text-gold font-mono text-sm font-bold">
-                                                        ${Number(product.price * (1 - product.discount_percentage / 100)).toLocaleString('es-CO')}
-                                                    </p>
-                                                    <p className="text-neutral-500 font-mono text-[10px] line-through mt-0.5 opacity-60">
-                                                        ${product.price.toLocaleString('es-CO')}
-                                                    </p>
-                                                </>
-                                            ) : (
-                                                <p className="text-gold font-mono text-sm">${product.price.toLocaleString('es-CO')}</p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Mobile/Tablet Permanent Button */}
-                                    <div className="mt-4 xl:hidden">
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); addItem(product); }}
-                                            className="w-full bg-gold text-black font-bold uppercase py-3 px-4 text-xs flex items-center gap-2 justify-center active:bg-white transition-colors rounded-sm"
-                                        >
-                                            <ShoppingCart size={16} />
-                                            AGREGAR
-                                        </button>
-                                    </div>
-                                </div>
+                            {paginatedProducts.map((product, idx) => (
+                                <ProductCard key={product.id} product={product} idx={idx} />
                             ))}
                         </div>
                     )}
