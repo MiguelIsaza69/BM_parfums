@@ -107,7 +107,8 @@ export default function OrderConfirmationPage() {
                     name: order.shipping_info.name || "Cliente",
                     items: order.items || [],
                     total: order.total || 0,
-                    shipping_info: order.shipping_info
+                    shipping_info: order.shipping_info,
+                    payment_method: order.payment_method
                 }),
                 signal: AbortSignal.timeout(8000)
             });
@@ -176,9 +177,13 @@ export default function OrderConfirmationPage() {
 
                         {(status === 'processing' || status === 'completed' || status === 'pending') ? (
                             <>
-                                <h1 className="text-3xl font-serif text-white mb-2">¡Pedido Confirmado!</h1>
+                                <h1 className="text-3xl font-serif text-white mb-2">
+                                    {order.payment_method === 'CASH_ON_DELIVERY' ? '¡Pedido Recibido!' : '¡Pedido Confirmado!'}
+                                </h1>
                                 <p className="text-neutral-400 font-mono text-sm max-w-md">
-                                    Tu pago ha sido procesado exitosamente. Recibirás tus productos en un lapso de <strong>3 a 5 días hábiles</strong>.
+                                    {order.payment_method === 'CASH_ON_DELIVERY'
+                                        ? 'Hemos recibido tu solicitud. Recuerda tener el dinero listo para pagar al momento de recibir tus productos.'
+                                        : 'Tu pago ha sido procesado exitosamente.'} Recibirás tus productos en un lapso de <strong>3 a 5 días hábiles</strong>.
                                 </p>
                             </>
                         ) : status === 'failed' ? (
@@ -266,6 +271,14 @@ export default function OrderConfirmationPage() {
                                     }`}>
                                     {status === 'processing' || (status === 'pending' && order?.payment_id) ? 'Aprobado' : status === 'completed' ? 'Entregado' : 'Pendiente'}
                                 </div>
+                                <div className="mt-2 block">
+                                    <p className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest">Método de Pago:</p>
+                                    <p className="text-xs font-bold uppercase text-neutral-600">
+                                        {order.payment_method === 'CASH_ON_DELIVERY' ? 'Contra Entrega' :
+                                            order.payment_method === 'BANCOLOMBIA_TRANSFER' ? 'Transferencia Bancolombia' :
+                                                'Tarjeta / PSE'}
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
@@ -301,7 +314,7 @@ export default function OrderConfirmationPage() {
                                     {items.map((item: any, idx: number) => (
                                         <tr key={idx}>
                                             <td className="py-4">
-                                                <p className="font-bold">{item.name} <span className="text-[10px] text-neutral-500 font-mono">({item.quality || '1.1'})</span></p>
+                                                <p className="font-bold">{item.name} <span className="text-[10px] text-neutral-500 font-mono">({item.quality || '1.1'}{item.ml ? ` - ${item.ml}ml` : ""})</span></p>
                                                 <p className="text-[10px] uppercase text-neutral-400">{item.brand}</p>
                                             </td>
                                             <td className="py-4 text-center">{item.quantity}</td>

@@ -7,7 +7,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { orderId, email, name, items, total, shipping_info } = body;
+        const { orderId, email, name, items, total, shipping_info, payment_method } = body;
 
         // 1. Precise Calculations
         console.log(`[EMAIL] Processing Order #${orderId} - Items: ${items?.length}, Total: ${total}`);
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
         const itemsHtml = safeItems.map((item: any) => `
             <tr>
                 <td style="padding: 10px; border-bottom: 1px solid #eee;">
-                    <strong>${item.name} (${item.quality || '1.1'})</strong><br/>
+                    <strong>${item.name} (${item.quality || '1.1'}${item.ml ? ` - ${item.ml}ml` : ''})</strong><br/>
                     <span style="font-size: 12px; color: #666;">${item.brand}</span>
                 </td>
                 <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
@@ -45,11 +45,14 @@ export async function POST(request: Request) {
                 </div>
                 
                 <div style="padding: 20px; border: 1px solid #eee;">
-                    <h2 style="color: #000; margin-top: 0;">¡Tu pago ha sido confirmado, ${name}!</h2>
-                    <p>Tu pedido <strong>#${orderId.slice(0, 8).toUpperCase()}</strong> ha sido verificado y se encuentra en estado <strong>PROCESANDO</strong>.</p>
+                    <h2 style="color: #000; margin-top: 0;">
+                        ${payment_method === 'CASH_ON_DELIVERY' ? `¡Pedido Recibido, ${name}!` : `¡Tu pago ha sido confirmado, ${name}!`}
+                    </h2>
+                    <p>Tu pedido <strong>#${orderId.slice(0, 8).toUpperCase()}</strong> ha sido verificado y se encuentra en estado <strong>${payment_method === 'CASH_ON_DELIVERY' ? 'RECIBIDO' : 'PROCESANDO'}</strong>.</p>
+                    <p style="font-size: 14px; margin-top: 10px;"><strong>Método de Pago:</strong> ${payment_method === 'CASH_ON_DELIVERY' ? 'Contra Entrega (Efectivo)' : payment_method === 'BANCOLOMBIA_TRANSFER' ? 'Transferencia Bancolombia' : 'Tarjeta / PSE'}</p>
                     
                     <div style="background-color: #fcf8e3; border: 1px solid #faebcc; color: #8a6d3b; padding: 15px; border-radius: 4px; margin: 20px 0;">
-                        <strong>Información importante:</strong> Tu pedido tardará de <strong>3 a 5 días hábiles</strong> en llegar a su destino. Te mantendremos informado sobre cualquier cambio en el estado de tu envío.
+                        <strong>Información importante:</strong> ${payment_method === 'CASH_ON_DELIVERY' ? 'Recuerda tener el dinero listo al recibir tus productos.' : 'Tu pago ha sido confirmado.'} Tu pedido tardará de <strong>3 a 5 días hábiles</strong> en llegar a su destino.
                     </div>
 
                     <h3 style="border-bottom: 2px solid #D4AF37; padding-bottom: 5px; margin-top: 20px;">Recibo de Compra</h3>

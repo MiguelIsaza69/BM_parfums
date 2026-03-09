@@ -545,7 +545,8 @@ export default function AdminDashboard() {
         has_original: false,
         price_original: "" as string | number,
         discount_percentage_original: "" as string | number,
-        stock_original: 0
+        stock_original: 0,
+        decants: [] as any[]
     });
     const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false); // New state for form visibility
@@ -592,7 +593,8 @@ export default function AdminDashboard() {
     const resetProductForm = () => {
         setProductForm({
             id: null, name: "", brand_id: "", gender_id: "", category_ids: [""], description: "", price: "", volume_ml: "", quality: "1.1", is_active: true, is_favorite: false, discount_percentage: "", stock: 1,
-            has_original: false, price_original: "", discount_percentage_original: "", stock_original: 0
+            has_original: false, price_original: "", discount_percentage_original: "", stock_original: 0,
+            decants: []
         });
         setImagesText("");
         setIsFormOpen(false); // Close form on reset
@@ -652,7 +654,8 @@ export default function AdminDashboard() {
                 has_original: productForm.has_original,
                 price_original: productForm.has_original ? Number(productForm.price_original) : null,
                 discount_percentage_original: productForm.has_original ? Number(productForm.discount_percentage_original) : null,
-                stock_original: productForm.has_original ? Number(productForm.stock_original) : null
+                stock_original: productForm.has_original ? Number(productForm.stock_original) : null,
+                decants: productForm.has_original ? productForm.decants : []
             };
 
             console.log("Saving payload via API:", payload);
@@ -722,7 +725,8 @@ export default function AdminDashboard() {
             has_original: p.has_original ?? false,
             price_original: p.price_original || "",
             discount_percentage_original: p.discount_percentage_original || "",
-            stock_original: p.stock_original ?? 0
+            stock_original: p.stock_original ?? 0,
+            decants: Array.isArray(p.decants) ? p.decants : []
         });
         // Handle images (text, array, or JSON string)
         let actualImages: string[] = [];
@@ -922,6 +926,78 @@ export default function AdminDashboard() {
                                                                 className="bg-black border border-white/20 p-2 text-sm text-white focus:border-gold outline-none font-mono rounded"
                                                             />
                                                         </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* DECANT OPTIONS (Only for Original) */}
+                                            {productForm.has_original && (
+                                                <div className="pt-4 border-t border-white/10 mt-4 animate-in fade-in duration-500">
+                                                    <div className="flex justify-between items-center mb-4">
+                                                        <label className="text-[10px] font-mono text-gold uppercase tracking-widest font-bold">Opciones de Decants</label>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setProductForm(prev => ({ ...prev, decants: [...prev.decants, { size: "", price: "", discount: "" }] }))}
+                                                            className="text-[10px] font-mono text-gold border border-gold/30 px-2 py-1 hover:bg-gold hover:text-black transition-all rounded"
+                                                        >
+                                                            + AGREGAR DECANT
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="space-y-3">
+                                                        {productForm.decants.map((decant, idx) => (
+                                                            <div key={idx} className="grid grid-cols-4 gap-2 items-end bg-black/40 p-2 rounded border border-white/5">
+                                                                <div className="flex flex-col gap-1">
+                                                                    <label className="text-[8px] font-mono text-neutral-500 uppercase">Size (ml)</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={decant.size}
+                                                                        onChange={e => {
+                                                                            const newDecants = [...productForm.decants];
+                                                                            newDecants[idx].size = Number(e.target.value);
+                                                                            setProductForm(prev => ({ ...prev, decants: newDecants }));
+                                                                        }}
+                                                                        className="bg-neutral-900 border border-white/10 p-1.5 text-xs text-white focus:border-gold outline-none font-mono rounded"
+                                                                    />
+                                                                </div>
+                                                                <div className="flex flex-col gap-1">
+                                                                    <label className="text-[8px] font-mono text-neutral-500 uppercase">Precio</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={decant.price}
+                                                                        onChange={e => {
+                                                                            const newDecants = [...productForm.decants];
+                                                                            newDecants[idx].price = Number(e.target.value);
+                                                                            setProductForm(prev => ({ ...prev, decants: newDecants }));
+                                                                        }}
+                                                                        className="bg-neutral-900 border border-white/10 p-1.5 text-xs text-white focus:border-gold outline-none font-mono rounded"
+                                                                    />
+                                                                </div>
+                                                                <div className="flex flex-col gap-1">
+                                                                    <label className="text-[8px] font-mono text-neutral-500 uppercase">Desc %</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={decant.discount}
+                                                                        onChange={e => {
+                                                                            const newDecants = [...productForm.decants];
+                                                                            newDecants[idx].discount = Number(e.target.value);
+                                                                            setProductForm(prev => ({ ...prev, decants: newDecants }));
+                                                                        }}
+                                                                        className="bg-neutral-900 border border-white/10 p-1.5 text-xs text-white focus:border-gold outline-none font-mono rounded"
+                                                                    />
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setProductForm(prev => ({ ...prev, decants: prev.decants.filter((_, i) => i !== idx) }))}
+                                                                    className="text-red-500 hover:text-white transition-colors p-2 flex justify-center"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        {productForm.decants.length === 0 && (
+                                                            <p className="text-[9px] font-mono text-neutral-600 text-center italic">No hay decants configurados.</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}
@@ -1148,6 +1224,7 @@ export default function AdminDashboard() {
                                         <th className="p-4">Dirección</th>
                                         <th className="p-4">Productos</th>
                                         <th className="p-4">Fecha</th>
+                                        <th className="p-4">Pago</th>
                                         <th className="p-4">Estado</th>
                                         <th className="p-4">Total</th>
                                         <th className="p-4">Descripción / Notas</th>
@@ -1209,6 +1286,23 @@ export default function AdminDashboard() {
                                                 </div>
                                             </td>
                                             <td className="p-4 align-top text-neutral-300 text-sm">{new Date(order.created_at).toLocaleDateString()} <br /> <span className="text-neutral-400 text-sm">{new Date(order.created_at).toLocaleTimeString()}</span></td>
+                                            <td className="p-4 align-top">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded w-fit ${order.payment_method === 'CASH_ON_DELIVERY' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
+                                                        order.payment_method === 'BANCOLOMBIA_TRANSFER' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                                                            'bg-purple-500/10 text-purple-500 border border-purple-500/20'
+                                                        }`}>
+                                                        {order.payment_method === 'CASH_ON_DELIVERY' ? 'CONTRA ENTREGA' :
+                                                            order.payment_method === 'BANCOLOMBIA_TRANSFER' ? 'BANCOLOMBIA' :
+                                                                order.payment_method || 'TARJETA/PSE'}
+                                                    </span>
+                                                    {order.payment_id && (
+                                                        <span className="text-[9px] text-neutral-500 font-mono truncate max-w-[80px]" title={order.payment_id}>
+                                                            ID: {order.payment_id.slice(-6)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="p-4 align-top">
                                                 <select
                                                     value={order.status}

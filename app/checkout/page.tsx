@@ -33,7 +33,7 @@ export default function CheckoutPage() {
     const [selectedAddressId, setSelectedAddressId] = useState<string>("new");
     const [acceptanceData, setAcceptanceData] = useState<{ token: string; permalink: string } | null>(null);
     const [termsAccepted, setTermsAccepted] = useState(false);
-    const [paymentMethodSelection, setPaymentMethodSelection] = useState<"widget" | "bancolombia">("widget");
+    const [paymentMethodSelection, setPaymentMethodSelection] = useState<"widget" | "bancolombia" | "cash_on_delivery">("widget");
 
     // Coupon State
     const [couponInput, setCouponInput] = useState("");
@@ -303,7 +303,7 @@ export default function CheckoutPage() {
             return;
         }
 
-        if (!termsAccepted) {
+        if (paymentMethodSelection !== "cash_on_delivery" && !termsAccepted) {
             sileo.error({
                 title: "Aceptación necesaria",
                 description: "Debes aceptar los términos y condiciones para continuar."
@@ -363,6 +363,19 @@ export default function CheckoutPage() {
         // 3. Prepare Wompi Data (EXACT INTEGERS ONLY)
         const amountInCents = Math.floor(finalTotal * 100);
         const reference = String(order.id).trim();
+
+        // 2.1 Handle Cash on Delivery (Skip Wompi)
+        if (paymentMethodSelection === "cash_on_delivery") {
+            await supabase.from('orders').update({
+                payment_method: 'CASH_ON_DELIVERY',
+                status: 'pending'
+            }).eq('id', order.id);
+
+            clearCart();
+            window.location.href = `/order-confirmation/${order.id}`;
+            return;
+        }
+
         const currency = 'COP';
 
         console.log(`[Wompi] Preparando pago - Ref: "${reference}", Centavos: ${amountInCents}`);
@@ -838,10 +851,24 @@ export default function CheckoutPage() {
                                             <p className="text-[10px] text-neutral-500 font-mono">MÉTODO TUTORIAL</p>
                                         </div>
                                     </label>
+
+                                    <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-all ${paymentMethodSelection === 'cash_on_delivery' ? 'bg-gold/10 border-gold/50' : 'bg-black/40 border-white/5 hover:border-white/20'}`}>
+                                        <input
+                                            type="radio"
+                                            name="paymentType"
+                                            checked={paymentMethodSelection === 'cash_on_delivery'}
+                                            onChange={() => setPaymentMethodSelection('cash_on_delivery')}
+                                            className="accent-gold"
+                                        />
+                                        <div>
+                                            <p className="text-sm font-medium text-green-500 font-bold">Pago Contra Entrega</p>
+                                            <p className="text-[10px] text-neutral-500 font-mono tracking-widest uppercase">Paga al recibir</p>
+                                        </div>
+                                    </label>
                                 </div>
 
 
-                                {acceptanceData && (
+                                {acceptanceData && paymentMethodSelection !== 'cash_on_delivery' && (
                                     <div className="mt-4 flex items-start gap-3 bg-black/40 p-4 rounded border border-white/5">
                                         <input
                                             type="checkbox"
@@ -889,7 +916,7 @@ export default function CheckoutPage() {
 
                             <div className="flex flex-col gap-4 mb-8 max-h-[300px] overflow-y-auto custom-scrollbar">
                                 {items.map((item) => (
-                                    <div key={item.id} className="flex gap-4">
+                                    <div key={`${item.id}-${item.quality}-${item.ml}`} className="flex gap-4">
                                         <div className="relative w-16 h-16 bg-white shrink-0">
                                             <Image
                                                 src={item.image}

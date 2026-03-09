@@ -54,7 +54,7 @@ export function ProductCard({ product, idx = 0, delay }: ProductCardProps) {
     const handleAddToCart = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        addItem(product, 1, selectedQuality);
+        addItem(product, 1, selectedQuality, product.volume_ml);
     };
 
     return (
@@ -135,6 +135,15 @@ export function ProductCard({ product, idx = 0, delay }: ProductCardProps) {
                             Original
                         </button>
                     )}
+                </div>
+
+                {/* Volume Display */}
+                <div className="flex justify-center mt-2">
+                    <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest">
+                        {isOriginal && product.decants && product.decants.length > 0
+                            ? `${product.volume_ml}ml (+ Decants)`
+                            : `${product.volume_ml || 0}ml`}
+                    </span>
                 </div>
             </div>
 

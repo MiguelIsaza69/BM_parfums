@@ -20,6 +20,9 @@ export default function ProductDetailsPage() {
     const [categories, setCategories] = useState<any[]>([]);
     const [genderName, setGenderName] = useState<string>("");
     const [selectedQuality, setSelectedQuality] = useState<string>("1.1");
+    const [selectedSize, setSelectedSize] = useState<number>(0);
+    const [selectedPrice, setSelectedPrice] = useState<number>(0);
+    const [selectedDiscount, setSelectedDiscount] = useState<number>(0);
 
     // Icon mapping for perfume characteristics
     const iconMap: Record<string, React.ReactNode> = {
@@ -123,11 +126,12 @@ export default function ProductDetailsPage() {
 
                     setProduct(data);
                     setGenderName(data.genders?.name || "");
-                    // Default to Original if base quality is not available or if Original is the only one (though unlikely here)
+                    // Default to Original if base quality is not available
                     const initialQuality = data.quality === 'Original' ? 'Original' : '1.1';
                     setSelectedQuality(initialQuality);
+                    setSelectedSize(data.volume_ml || 0);
 
-                    // Fetch Category Names (since we only have IDs in product)
+                    // Fetch Category Names
                     if (data.category_ids && data.category_ids.length > 0) {
                         const { data: cats } = await supabase
                             .from('categories')
@@ -147,7 +151,15 @@ export default function ProductDetailsPage() {
     }, [params.id]);
 
     const handleAddToCart = () => {
-        addItem(product, 1, selectedQuality);
+        const isDecant = selectedQuality === 'Original' && selectedSize !== product.volume_ml;
+        addItem(
+            product,
+            1,
+            selectedQuality,
+            selectedSize,
+            isDecant ? selectedPrice : undefined,
+            isDecant ? selectedDiscount : undefined
+        );
     };
 
     const handleSearchSimilar = () => {
@@ -187,8 +199,16 @@ export default function ProductDetailsPage() {
 
     // Dynamic price calculation
     const isOriginal = selectedQuality === 'Original';
-    const currentPrice = isOriginal ? (product.price_original || 0) : (product.price || 0);
-    const currentDiscount = isOriginal ? (product.discount_percentage_original || 0) : (product.discount_percentage || 0);
+    const isDecant = isOriginal && selectedSize !== product?.volume_ml;
+
+    let currentPrice = isOriginal ? (product.price_original || 0) : (product.price || 0);
+    let currentDiscount = isOriginal ? (product.discount_percentage_original || 0) : (product.discount_percentage || 0);
+
+    if (isDecant) {
+        currentPrice = selectedPrice;
+        currentDiscount = selectedDiscount;
+    }
+
     const currentStock = isOriginal ? (product.stock_original || 0) : (product.stock || 0);
 
     return (
@@ -260,7 +280,10 @@ export default function ProductDetailsPage() {
                                 <span className="block uppercase tracking-widest text-neutral-500 text-xs mb-4 font-mono">Seleccionar Calidad</span>
                                 <div className="flex gap-4">
                                     <button
-                                        onClick={() => setSelectedQuality('1.1')}
+                                        onClick={() => {
+                                            setSelectedQuality('1.1');
+                                            setSelectedSize(product.volume_ml);
+                                        }}
                                         className={`flex-1 py-3 px-4 border transition-all font-mono text-xs tracking-widest uppercase ${selectedQuality === '1.1'
                                             ? 'border-gold text-gold bg-gold/5 font-bold'
                                             : 'border-white/20 text-white hover:border-white/40 bg-white/5'}`}
@@ -279,6 +302,38 @@ export default function ProductDetailsPage() {
                             </div>
                         )}
 
+                        {/* Decants Selector (Only for Original) */}
+                        {selectedQuality === 'Original' && product.decants && product.decants.length > 0 && (
+                            <div className="mb-8 animate-in fade-in slide-in-from-top-2 duration-500">
+                                <span className="block uppercase tracking-widest text-neutral-500 text-xs mb-4 font-mono">Presentación (Decants)</span>
+                                <div className="flex flex-wrap gap-2">
+                                    <button
+                                        onClick={() => setSelectedSize(product.volume_ml)}
+                                        className={`py-2 px-4 border transition-all font-mono text-[10px] tracking-widest uppercase ${selectedSize === product.volume_ml
+                                            ? 'border-gold text-gold bg-gold/5 font-bold'
+                                            : 'border-white/10 text-neutral-400 hover:border-white/30 hover:text-white bg-white/5'}`}
+                                    >
+                                        Frasco {product.volume_ml}ml
+                                    </button>
+                                    {product.decants.map((decant: any, idx: number) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => {
+                                                setSelectedSize(decant.size);
+                                                setSelectedPrice(decant.price);
+                                                setSelectedDiscount(decant.discount || 0);
+                                            }}
+                                            className={`py-2 px-4 border transition-all font-mono text-[10px] tracking-widest uppercase ${selectedSize === decant.size
+                                                ? 'border-gold text-gold bg-gold/5 font-bold'
+                                                : 'border-white/10 text-neutral-400 hover:border-white/30 hover:text-white bg-white/5'}`}
+                                        >
+                                            Decant {decant.size}ml
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Metadata */}
                         <div className="grid grid-cols-2 gap-6 mb-8 font-mono">
                             <div>
@@ -293,7 +348,7 @@ export default function ProductDetailsPage() {
                             </div>
                             <div>
                                 <span className="block uppercase tracking-widest text-neutral-500 text-xs mb-2">Volumen</span>
-                                <span className="text-white text-lg">{product.volume_ml ? `${product.volume_ml} ml` : "N/A"}</span>
+                                <span className="text-white text-lg">{selectedSize ? `${selectedSize} ml` : "N/A"}</span>
                             </div>
                             <div>
                                 <span className="block uppercase tracking-widest text-neutral-500 text-xs mb-2">Calidad Actual</span>

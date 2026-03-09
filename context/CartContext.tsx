@@ -17,9 +17,9 @@ export type CartItem = {
 
 type CartContextType = {
     items: CartItem[];
-    addItem: (product: any, quantity?: number, selectedQuality?: string) => void;
-    removeItem: (id: string, quality: string) => void;
-    updateQuantity: (id: string, quality: string, newQuantity: number) => void;
+    addItem: (product: any, quantity?: number, selectedQuality?: string, selectedSize?: number, selectedPrice?: number, selectedDiscount?: number) => void;
+    removeItem: (id: string, quality: string, ml?: number) => void;
+    updateQuantity: (id: string, quality: string, ml: number | undefined, newQuantity: number) => void;
     clearCart: () => void;
     total: number;
     count: number;
@@ -54,18 +54,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
     }, [items, isLoaded]);
 
-    const addItem = (product: any, quantity = 1, selectedQuality?: string) => {
+    const addItem = (product: any, quantity = 1, selectedQuality?: string, selectedSize?: number, selectedPrice?: number, selectedDiscount?: number) => {
         setItems(current => {
             // Default to product's base quality if not provided
             const quality = selectedQuality || product.quality || '1.1';
             const isOriginal = quality === 'Original';
 
-            // Check if this specific variant is already in cart
-            const existing = current.find(item => item.id === product.id && item.quality === quality);
+            // Volume to use: either selectedSize or the product's default volume
+            const volume = selectedSize || product.volume_ml || 0;
+
+            // Check if this specific variant (id + quality + volume) is already in cart
+            const existing = current.find(item =>
+                item.id === product.id &&
+                item.quality === quality &&
+                (item.ml === volume)
+            );
 
             if (existing) {
                 return current.map(item =>
-                    (item.id === product.id && item.quality === quality)
+                    (item.id === product.id && item.quality === quality && item.ml === volume)
                         ? { ...item, quantity: item.quantity + quantity }
                         : item
                 );
@@ -86,11 +93,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 }
             }
 
-            // Determine Price based on quality
-            let basePrice = Number(product.price);
-            let discount = Number(product.discount_percentage) || 0;
+            // Determine Price
+            let basePrice = selectedPrice !== undefined ? selectedPrice : Number(product.price);
+            let discount = selectedDiscount !== undefined ? selectedDiscount : (Number(product.discount_percentage) || 0);
 
-            if (isOriginal) {
+            if (selectedPrice === undefined && isOriginal) {
                 basePrice = Number(product.price_original) || basePrice;
                 discount = Number(product.discount_percentage_original) || 0;
             }
@@ -107,7 +114,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 brand: product.brands?.name || product.brandName || "BM",
                 quantity,
                 quality,
-                ml: product.volume_ml,
+                ml: volume,
                 originalPrice: discount > 0 ? basePrice : undefined,
                 discount: discount > 0 ? discount : undefined
             };
@@ -116,14 +123,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setIsOpen(true);
     };
 
-    const removeItem = (id: string, quality: string) => {
-        setItems(current => current.filter(item => !(item.id === id && item.quality === quality)));
+    const removeItem = (id: string, quality: string, ml?: number) => {
+        setItems(current => current.filter(item => !(item.id === id && item.quality === quality && (ml === undefined || item.ml === ml))));
     };
 
-    const updateQuantity = (id: string, quality: string, newQuantity: number) => {
+    const updateQuantity = (id: string, quality: string, ml: number | undefined, newQuantity: number) => {
         if (newQuantity < 1) return;
         setItems(current => current.map(item =>
-            (item.id === id && item.quality === quality) ? { ...item, quantity: newQuantity } : item
+            (item.id === id && item.quality === quality && item.ml === ml) ? { ...item, quantity: newQuantity } : item
         ));
     };
 
