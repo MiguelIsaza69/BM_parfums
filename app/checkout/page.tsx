@@ -35,17 +35,22 @@ export default function CheckoutPage() {
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [paymentMethodSelection, setPaymentMethodSelection] = useState<"widget" | "bancolombia" | "cash_on_delivery">("widget");
 
+    // Contra entrega fee (6%)
+    const COD_FEE_PERCENTAGE = 0.06;
+
     // Coupon State
     const [couponInput, setCouponInput] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
     const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
     const [discountAmount, setDiscountAmount] = useState(0);
 
+    const codFee = paymentMethodSelection === "cash_on_delivery" ? Math.round((total - discountAmount) * COD_FEE_PERCENTAGE) : 0;
+
     // Shipping Logic
     const SHIPPING_THRESHOLD = 180000;
     const SHIPPING_COST = 15000;
     const shippingPrice = total >= SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
-    const finalTotal = total - discountAmount + shippingPrice;
+    const finalTotal = total - discountAmount + shippingPrice + codFee;
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [showGuestInvite, setShowGuestInvite] = useState(false);
@@ -56,6 +61,15 @@ export default function CheckoutPage() {
     // Derived state for cities based on selected department in form
     const availableCities = formData.department ? (colombiaData as any)[formData.department] || [] : [];
     const departmentsList = departments;
+
+    useEffect(() => {
+        if (paymentMethodSelection === 'cash_on_delivery') {
+            sileo.info({
+                title: "Pago Contra Entrega",
+                description: "Este método de pago tiene un recargo del 6% sobre el valor de los productos ($" + codFee.toLocaleString('es-CO') + ") debido al costo de manejo de recaudo de la transportadora."
+            });
+        }
+    }, [paymentMethodSelection]);
 
     useEffect(() => {
         const loadUserData = async () => {
@@ -861,8 +875,8 @@ export default function CheckoutPage() {
                                             className="accent-gold"
                                         />
                                         <div>
-                                            <p className="text-sm font-medium text-green-500 font-bold">Pago Contra Entrega</p>
-                                            <p className="text-[10px] text-neutral-500 font-mono tracking-widest uppercase">Paga al recibir</p>
+                                            <p className="text-sm font-medium text-green-500 font-bold">Pago Contra Entrega (+6%)</p>
+                                            <p className="text-[10px] text-neutral-500 font-mono tracking-widest uppercase">Paga al recibir. Se suma un 6% por costo de recaudo.</p>
                                         </div>
                                     </label>
                                 </div>
@@ -997,11 +1011,19 @@ export default function CheckoutPage() {
                                     <span>Envío</span>
                                     <span>{shippingPrice <= 0 ? "Gratis" : `$${(shippingPrice as number).toLocaleString('es-CO')}`}</span>
                                 </div>
+
+                                {codFee > 0 && (
+                                    <div className="flex justify-between text-gold animate-in fade-in slide-in-from-right-2 duration-300">
+                                        <span>Comisión Contra Entrega (6%)</span>
+                                        <span className="font-bold">+${codFee.toLocaleString('es-CO')}</span>
+                                    </div>
+                                )}
+
                                 <div className="flex justify-between text-white text-lg font-bold border-t border-white/10 pt-4 mt-2">
                                     <span>Total</span>
                                     <div className="flex flex-col items-end">
                                         <span>${finalTotal.toLocaleString('es-CO')}</span>
-                                        {appliedCoupon && (
+                                        {(appliedCoupon || codFee > 0) && (
                                             <span className="text-[10px] text-neutral-500 line-through font-normal">
                                                 ${(total + shippingPrice).toLocaleString('es-CO')}
                                             </span>

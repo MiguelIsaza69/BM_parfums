@@ -145,9 +145,15 @@ export default function OrderConfirmationPage() {
     if (!order) return null;
 
     const { shipping_info, items, total, id, created_at, status } = order;
-    const itemsSubtotal = items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+    const isCOD = order.payment_method === 'CASH_ON_DELIVERY';
+    const itemsSubtotal = items.reduce((sum: number, item: any) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
     const shippingCost = shipping_info.shipping_cost ?? (total >= 180000 ? 0 : 15000);
-    const discountAmount = (itemsSubtotal + shippingCost) - total;
+
+    // Reverse calculation to extract fee and discount correctly
+    // total = (itemsSubtotal - couponDiscount) * 1.06 + shippingCost
+    const baseAmountBeforeFee = isCOD ? Math.round((total - shippingCost) / 1.06) : (total - shippingCost);
+    const codFee = total - shippingCost - baseAmountBeforeFee;
+    const discountAmount = Math.max(0, itemsSubtotal - baseAmountBeforeFee);
     const hasDiscount = discountAmount > 50;
 
     return (
@@ -343,6 +349,12 @@ export default function OrderConfirmationPage() {
                                     <span>Envío</span>
                                     <span>{shippingCost === 0 ? "Gratis" : `$${shippingCost.toLocaleString('es-CO')}`}</span>
                                 </div>
+                                {codFee > 0 && (
+                                    <div className="flex justify-between text-neutral-600 animate-in fade-in slide-in-from-right-2 duration-300">
+                                        <span>Comisión Contra Entrega (6%)</span>
+                                        <span className="font-bold">+${codFee.toLocaleString('es-CO')}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between text-2xl font-serif font-bold border-t-2 border-black pt-4 mt-4">
                                     <span>Total</span>
                                     <span>${total.toLocaleString('es-CO')}</span>

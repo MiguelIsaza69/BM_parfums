@@ -14,14 +14,12 @@ export async function POST(request: Request) {
 
         const safeItems = Array.isArray(items) ? items : [];
         const itemsSubtotal = safeItems.reduce((acc: number, item: any) => acc + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+        const shippingCost = Number(shipping_info?.shipping_cost ?? (Number(total) >= 180000 ? 0 : 15000));
 
-        // Use saved shipping cost or fallback
-        const savedShipping = shipping_info?.shipping_cost;
-        const shippingCost = Number(savedShipping !== undefined && savedShipping !== null
-            ? savedShipping
-            : (Number(total) >= 180000 ? 0 : 15000));
-
-        const discountAmount = Math.max(0, Math.round((itemsSubtotal + shippingCost) - Number(total)));
+        const isCOD = payment_method === 'CASH_ON_DELIVERY';
+        const baseAmountBeforeFee = isCOD ? Math.round((Number(total) - shippingCost) / 1.06) : (Number(total) - shippingCost);
+        const codFee = Number(total) - shippingCost - baseAmountBeforeFee;
+        const discountAmount = Math.max(0, itemsSubtotal - baseAmountBeforeFee);
         const finalTotal = Number(total);
 
         console.log(`[EMAIL] Stats: Subtotal=${itemsSubtotal}, Shipping=${shippingCost}, Discount=${discountAmount}, Final=${finalTotal}`);
@@ -81,6 +79,11 @@ export async function POST(request: Request) {
                                 <td colspan="2" style="padding: 10px; text-align: right;">Envío:</td>
                                 <td style="padding: 10px; text-align: right;">${shippingCost === 0 ? 'Gratis' : `$${shippingCost.toLocaleString('es-CO')}`}</td>
                             </tr>
+                            ${codFee > 0 ? `
+                            <tr>
+                                <td colspan="2" style="padding: 10px; text-align: right;">Comisión Contra Entrega (6%):</td>
+                                <td style="padding: 10px; text-align: right;">+$${codFee.toLocaleString('es-CO')}</td>
+                            </tr>` : ''}
                             <tr style="background-color: #f9f9f9; font-size: 18px;">
                                 <td colspan="2" style="padding: 10px; text-align: right; font-weight: bold;">Total:</td>
                                 <td style="padding: 10px; text-align: right; font-weight: bold; color: #D4AF37;">$${finalTotal.toLocaleString('es-CO')}</td>
