@@ -641,7 +641,7 @@ export default function AdminDashboard() {
         newCats[index] = val;
         setProductForm(prev => ({ ...prev, category_ids: newCats }));
     };
-    const addCategoryField = () => productForm.category_ids.length < 4 && setProductForm(prev => ({ ...prev, category_ids: [...prev.category_ids, ""] }));
+    const addCategoryField = () => setProductForm(prev => ({ ...prev, category_ids: [...prev.category_ids, ""] }));
     const removeCategoryField = (i: number) => {
         const newCats = productForm.category_ids.filter((_, idx) => idx !== i);
         setProductForm(prev => ({ ...prev, category_ids: newCats.length ? newCats : [""] }));
@@ -902,7 +902,7 @@ export default function AdminDashboard() {
                                             <div className="flex flex-col gap-2"><label className="text-xs font-mono text-neutral-500 uppercase">Género</label><select value={productForm.gender_id || ""} onChange={e => handleProductFormChange('gender_id', e.target.value)} className="bg-black border border-white/20 p-3 text-sm text-white focus:border-gold outline-none font-mono rounded appearance-none"><option value="">Select...</option>{genders.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div>
                                         </div>
                                         <div className="flex flex-col gap-2">
-                                            <div className="flex justify-between items-center"><label className="text-xs font-mono text-neutral-500 uppercase">Categorías (Max 4)</label><button type="button" onClick={addCategoryField} className="text-[10px] text-gold uppercase">+ Agregar</button></div>
+                                            <div className="flex justify-between items-center"><label className="text-xs font-mono text-neutral-500 uppercase">Categorías</label><button type="button" onClick={addCategoryField} className="text-[10px] text-gold uppercase">+ Agregar</button></div>
                                             <div className="space-y-2">{productForm.category_ids.map((catId, index) => (<div key={index} className="flex gap-2"><select value={catId || ""} onChange={(e) => handleProductCategoryChange(index, e.target.value)} className="flex-1 bg-black border border-white/20 p-2 text-sm text-white focus:border-gold outline-none font-mono rounded appearance-none"><option value="">Select...</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>{productForm.category_ids.length > 1 && (<button type="button" onClick={() => removeCategoryField(index)} className="text-red-500"><X size={14} /></button>)}</div>))}</div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
