@@ -355,6 +355,14 @@ export default function AdminDashboard() {
     const [newCouponDiscount, setNewCouponDiscount] = useState("");
     const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
 
+    // --- CATEGORY CONFIG STATE ---
+    const [newCategoryName, setNewCategoryName] = useState("");
+    const [newCategoryImage, setNewCategoryImage] = useState("");
+    const [isSubmittingCategory, setIsSubmittingCategory] = useState(false);
+    const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+    const [editCategoryName, setEditCategoryName] = useState("");
+    const [editCategoryImage, setEditCategoryImage] = useState("");
+
     useEffect(() => {
         let mounted = true;
 
@@ -366,6 +374,10 @@ export default function AdminDashboard() {
                     addToast("Error al cargar marcas", "error");
                 }
                 if (mounted && data) setBrands(data);
+
+                const { data: cData, error: cError } = await supabase.from('categories').select('*').order('name');
+                if (cError) console.error("Error loading categories:", cError);
+                if (mounted && cData) setCategories(cData);
             }
 
             if (activeSection === 'products') {
@@ -481,6 +493,51 @@ export default function AdminDashboard() {
             setEditingBrandId(null);
         } else {
             addToast("Error al guardar marca", "error");
+        }
+    };
+
+    // Category Operations
+    const handleAddCategory = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newCategoryName.trim()) return addToast("Nombre vacío", "warning");
+        setIsSubmittingCategory(true);
+        try {
+            const { data, error } = await supabase.from('categories').insert([{ name: newCategoryName.trim(), image_url: newCategoryImage.trim() }]).select();
+            if (error) throw error;
+            addToast("Categoría agregada.", "success");
+            if (data) setCategories(prev => [...prev, data[0]]);
+            setNewCategoryName("");
+            setNewCategoryImage("");
+        } catch (err: any) { addToast("Error: " + err.message, "error"); }
+        finally { setIsSubmittingCategory(false); }
+    };
+
+    const handleDeleteCategory = async (id: string) => {
+        openConfirmModal({
+            title: "Eliminar Categoría",
+            message: "¿Estás seguro de que deseas eliminar esta categoría? Esto podría afectar la navegación del sitio.",
+            confirmText: "Eliminar",
+            isDanger: true,
+            onConfirm: async () => {
+                const { error } = await supabase.from('categories').delete().eq('id', id);
+                if (error) addToast("Error: " + error.message, "error");
+                else { setCategories(categories.filter(c => c.id !== id)); addToast("Categoría eliminada.", "success"); }
+            }
+        });
+    };
+
+    const handleStartEditCategory = (c: any) => { setEditingCategoryId(c.id); setEditCategoryName(c.name); setEditCategoryImage(c.image_url || ""); };
+    const handleCancelEditCategory = () => { setEditingCategoryId(null); setEditCategoryName(""); setEditCategoryImage(""); };
+
+    const handleSaveEditCategory = async (id: string) => {
+        if (!editCategoryName.trim()) return addToast("Nombre vacío", "warning");
+        const { error } = await supabase.from('categories').update({ name: editCategoryName.trim(), image_url: editCategoryImage.trim() }).eq('id', id);
+        if (!error) {
+            addToast("Categoría actualizada", "success");
+            setCategories(prev => prev.map(c => c.id === id ? { ...c, name: editCategoryName, image_url: editCategoryImage } : c));
+            setEditingCategoryId(null);
+        } else {
+            addToast("Error al guardar categoría", "error");
         }
     };
 
@@ -1424,6 +1481,89 @@ export default function AdminDashboard() {
                                                 {img.image_url}
                                             </div>
                                         </>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Categories Section */}
+                    <div className="border-b border-white/10 pb-12">
+                        <h2 className="text-2xl font-serif text-white mb-6">Categorías</h2>
+                        <form onSubmit={handleAddCategory} className="flex gap-4 mb-8 bg-neutral-900 p-4 rounded-lg border border-white/20 flex-col md:flex-row">
+                            <input
+                                value={newCategoryName}
+                                onChange={e => setNewCategoryName(e.target.value)}
+                                placeholder="Nombre (ej. Árabes)"
+                                className="flex-1 bg-black border border-white/20 p-3 text-white text-sm font-mono focus:border-gold outline-none rounded"
+                            />
+                            <input
+                                value={newCategoryImage}
+                                onChange={e => setNewCategoryImage(e.target.value)}
+                                placeholder="URL de la Imagen (ej. Unsplash/Cloudinary)"
+                                className="flex-1 bg-black border border-white/20 p-3 text-white text-sm font-mono focus:border-gold outline-none rounded"
+                            />
+                            <button type="submit" disabled={isSubmittingCategory} className="bg-gold px-6 py-2 text-black font-bold uppercase text-xs hover:bg-white transition-colors rounded relative">
+                                <Plus size={16} />
+                                <span className="absolute -top-4 -right-2 bg-neutral-800/80 text-white text-[9px] font-mono px-2 py-0.5 rounded border border-white/20 whitespace-nowrap">
+                                    {categories.length} Categorías
+                                </span>
+                            </button>
+                        </form>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {categories.map(cat => (
+                                <div key={cat.id} className="relative aspect-4/5 group rounded-lg overflow-hidden border border-white/10 bg-neutral-900 hover:border-gold/50 transition-all duration-300">
+                                    <img
+                                        src={cat.image_url || "https://images.unsplash.com/photo-1541643600914-78b084683601?w=500"}
+                                        className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-500"
+                                    />
+                                    <div className="absolute inset-0 bg-linear-to-t from-black via-transparent to-transparent opacity-80" />
+
+                                    <div className="absolute bottom-4 left-4 right-4">
+                                        {editingCategoryId === cat.id ? (
+                                            <div className="flex flex-col gap-2 bg-black/90 p-3 rounded-lg border border-gold/30 backdrop-blur-md">
+                                                <input
+                                                    value={editCategoryName}
+                                                    onChange={e => setEditCategoryName(e.target.value)}
+                                                    className="w-full bg-neutral-900 border border-white/20 p-2 text-xs text-white focus:border-gold outline-none rounded"
+                                                    autoFocus
+                                                    placeholder="Nombre"
+                                                />
+                                                <input
+                                                    value={editCategoryImage}
+                                                    onChange={e => setEditCategoryImage(e.target.value)}
+                                                    className="w-full bg-neutral-900 border border-white/20 p-2 text-xs text-white focus:border-gold outline-none rounded"
+                                                    placeholder="URL Imagen"
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleSaveEditCategory(cat.id)}
+                                                />
+                                                <div className="flex gap-2 justify-end pt-1">
+                                                    <button onClick={() => handleSaveEditCategory(cat.id)} className="bg-green-600/20 text-green-500 hover:bg-green-600 hover:text-white p-1.5 rounded transition-all"><Check size={14} /></button>
+                                                    <button onClick={handleCancelEditCategory} className="bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white p-1.5 rounded transition-all"><X size={14} /></button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex justify-between items-end">
+                                                <div className="overflow-hidden mr-2">
+                                                    <span className="text-gold font-mono text-xs uppercase tracking-[2px] block opacity-70 mb-1">Categoría</span>
+                                                    <span className="text-white font-serif text-lg leading-tight truncate block group-hover:text-gold transition-colors">{cat.name}</span>
+                                                </div>
+                                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+                                                    <button onClick={() => handleStartEditCategory(cat)} className="bg-white/10 hover:bg-white text-white hover:text-black p-2 rounded-full backdrop-blur-sm transition-all shadow-xl"><Edit size={14} /></button>
+                                                    <button onClick={() => handleDeleteCategory(cat.id)} className="bg-black/40 hover:bg-red-600 text-white p-2 rounded-full backdrop-blur-sm border border-white/10 transition-all shadow-xl"><Trash2 size={14} /></button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {!editingCategoryId && (
+                                        <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="bg-black/60 backdrop-blur-md px-2 py-1 rounded border border-white/10">
+                                                <span className="text-[9px] font-mono text-neutral-400 truncate max-w-[150px] block">
+                                                    {cat.image_url ? 'Imagen Personalizada' : 'Imagen por defecto'}
+                                                </span>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             ))}
