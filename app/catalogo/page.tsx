@@ -179,7 +179,10 @@ function CatalogContent() {
         }
 
         // Price
-        result = result.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
+        result = result.filter(p => {
+            const finalPrice = p.price * (1 - (p.discount_percentage || 0) / 100);
+            return finalPrice >= priceRange[0] && finalPrice <= priceRange[1];
+        });
 
         // Active & In Stock Only
         result = result.filter(p => (p as any).is_active !== false && (p.stock > 0));
@@ -192,9 +195,9 @@ function CatalogContent() {
                 case 'least_sold':
                     return (salesCounts[a.id] || 0) - (salesCounts[b.id] || 0);
                 case 'price_desc':
-                    return b.price - a.price;
+                    return (b.price * (1 - (b.discount_percentage || 0) / 100)) - (a.price * (1 - (a.discount_percentage || 0) / 100));
                 case 'price_asc':
-                    return a.price - b.price;
+                    return (a.price * (1 - (a.discount_percentage || 0) / 100)) - (b.price * (1 - (b.discount_percentage || 0) / 100));
                 case 'az':
                     return a.name.localeCompare(b.name);
                 case 'za':
