@@ -201,9 +201,9 @@ export function Header() {
                                 )}
                             </div>
 
-                            {/* Search Dropdown */}
+                            {/* Search Dropdown (Desktop Only) */}
                             {showSearch && (
-                                <div className="absolute top-full right-0 mt-4 w-[800px] bg-black border border-white/10 rounded-lg shadow-2xl overflow-hidden z-50 flex flex-col md:flex-row animate-in fade-in zoom-in-95 duration-200">
+                                <div className="hidden nav:flex absolute top-full right-0 mt-4 w-[800px] bg-black border border-white/10 rounded-lg shadow-2xl overflow-hidden z-50 flex-col md:flex-row animate-in fade-in zoom-in-95 duration-200">
                                     {/* Left Column: Products */}
                                     <div className="flex-1 p-8 pb-20 border-r border-white/10">
                                         <h3 className="text-xs font-mono uppercase text-neutral-500 mb-6 tracking-widest">Coincidencias de Productos</h3>
@@ -339,39 +339,114 @@ export function Header() {
                 </div>
 
                 {isMobileMenuOpen && (
-                    <div className="absolute top-full left-0 w-full bg-black/95 border-b border-white/10 p-8 flex flex-col gap-6 nav:hidden glass-panel pointer-events-auto">
-                        <button
-                            onClick={() => { handleUserClick(); setIsMobileMenuOpen(false); }}
-                            className="text-lg font-mono uppercase tracking-[3px] text-white hover:text-gold text-left flex items-center gap-3 border-b border-white/10 pb-4 mb-2"
-                        >
-                            <User size={20} className={user ? 'text-gold' : 'text-neutral-400'} />
-                            <span className="font-bold">{user ? "Mi Perfil" : "Iniciar Sesión"}</span>
-                        </button>
+                    <div className="absolute top-full left-0 w-full bg-black/95 border-b border-white/10 p-8 flex flex-col gap-6 nav:hidden glass-panel pointer-events-auto max-h-[calc(100vh-80px)] overflow-y-auto">
+                        
+                        {/* Mobile Search Input */}
+                        <div className="relative w-full">
+                            <div className="flex items-center gap-2 border border-white/20 rounded-full px-4 py-2 bg-white/5 transition-all duration-300 focus-within:bg-black/80 focus-within:border-gold w-full">
+                                <Search className="w-4 h-4 text-neutral-400" />
+                                <input
+                                    type="text"
+                                    placeholder="BUSCAR..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="bg-transparent border-none outline-none text-xs w-full text-white placeholder:text-neutral-500 font-mono transition-all uppercase"
+                                />
+                                {searchQuery && (
+                                    <button onClick={() => { setSearchQuery(""); setShowSearch(false); }} className="text-neutral-500 hover:text-white">
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
 
-                        {isAdmin && (
-                            <Link
-                                href="/admin"
-                                className="text-lg font-mono uppercase tracking-widest text-red-500 font-bold hover:text-white transition-all"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                                Panel Admin
-                            </Link>
+                        {searchQuery && showSearch ? (
+                            <div className="flex flex-col gap-4 animate-in fade-in duration-200">
+                                <h3 className="text-xs font-mono uppercase text-neutral-500 tracking-widest border-b border-white/10 pb-2">Resultados</h3>
+                                {isSearching ? (
+                                    <div className="text-center py-4 text-gold text-sm font-mono animate-pulse">Buscando...</div>
+                                ) : searchResults.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {searchResults.map((product) => {
+                                            let image = null;
+                                            try {
+                                                const parsedImages = typeof product.images === 'string' ? JSON.parse(product.images) : product.images;
+                                                image = Array.isArray(parsedImages) && parsedImages.length > 0 ? parsedImages[0] : null;
+                                            } catch (e) {
+                                                console.error("Error parsing images for product", product.id, e);
+                                            }
+
+                                            return (
+                                                <Link
+                                                    key={product.id}
+                                                    href={`/product/${product.id}`}
+                                                    onClick={() => { setShowSearch(false); setIsMobileMenuOpen(false); }}
+                                                    className="flex gap-4 group hover:bg-white/5 p-2 rounded-lg transition-colors items-center"
+                                                >
+                                                    <div className="w-12 h-12 bg-white rounded-md overflow-hidden flex-shrink-0 p-1">
+                                                        {image ? (
+                                                            <img src={image} alt={product.name} className="w-full h-full object-contain mix-blend-multiply" />
+                                                        ) : (
+                                                            <div className="w-full h-full bg-neutral-200 flex items-center justify-center text-neutral-400 text-[10px]">Sin Foto</div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[10px] text-neutral-500 uppercase tracking-wider mb-0.5">{product.brands?.name}</p>
+                                                        <p className="text-sm font-serif text-white group-hover:text-gold transition-colors truncate">{product.name}</p>
+                                                        <p className="text-xs font-mono text-gold mt-0.5 font-bold">${product.price.toLocaleString()}</p>
+                                                    </div>
+                                                </Link>
+                                            );
+                                        })}
+                                        
+                                        <Link
+                                            href={`/catalogo?q=${searchQuery}`}
+                                            onClick={() => { setShowSearch(false); setIsMobileMenuOpen(false); }}
+                                            className="block w-full bg-gold text-black text-xs font-bold uppercase py-3 text-center hover:bg-white transition-colors tracking-widest rounded mt-4"
+                                        >
+                                            VER TODOS LOS RESULTADOS PARA "{searchQuery}"
+                                        </Link>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-neutral-600 text-sm font-mono italic">No se encontraron productos.</div>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => { handleUserClick(); setIsMobileMenuOpen(false); }}
+                                    className="text-lg font-mono uppercase tracking-[3px] text-white hover:text-gold text-left flex items-center gap-3 border-b border-white/10 pb-4 mb-2 mt-2"
+                                >
+                                    <User size={20} className={user ? 'text-gold' : 'text-neutral-400'} />
+                                    <span className="font-bold">{user ? "Mi Perfil" : "Iniciar Sesión"}</span>
+                                </button>
+
+                                {isAdmin && (
+                                    <Link
+                                        href="/admin"
+                                        className="text-lg font-mono uppercase tracking-widest text-red-500 font-bold hover:text-white transition-all"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        Panel Admin
+                                    </Link>
+                                )}
+                                {[
+                                    { name: "Categorías", path: "/categorias" },
+                                    { name: "Marcas", path: "/marcas" },
+                                    { name: "Catálogo", path: "/catalogo" },
+                                    { name: "Contacto", path: "/contacto" }
+                                ].map((item) => (
+                                    <Link
+                                        key={item.name}
+                                        href={item.path}
+                                        className="text-lg font-mono uppercase tracking-widest hover:text-gold"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        {item.name}
+                                    </Link>
+                                ))}
+                            </>
                         )}
-                        {[
-                            { name: "Categorías", path: "/categorias" },
-                            { name: "Marcas", path: "/marcas" },
-                            { name: "Catálogo", path: "/catalogo" },
-                            { name: "Contacto", path: "/contacto" }
-                        ].map((item) => (
-                            <Link
-                                key={item.name}
-                                href={item.path}
-                                className="text-lg font-mono uppercase tracking-widest hover:text-gold"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                                {item.name}
-                            </Link>
-                        ))}
                     </div>
                 )}
             </header>
