@@ -5,7 +5,7 @@ export const revalidate = 3600; // Revalida cada hora para mantenerlo actualizad
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Es recomendable configurar NEXT_PUBLIC_SITE_URL en Vercel con tu dominio de producción real
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.bmparfums.com';
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://bmparfums.com';
 
     // Rutas estáticas principales
     const staticRoutes = [
