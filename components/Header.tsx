@@ -220,6 +220,10 @@ export function Header() {
                                                         console.error("Error parsing images for product", product.id, e);
                                                     }
 
+                                                    const hasDiscount = product.discount_percentage > 0;
+                                                    const currentPrice = product.price || 0;
+                                                    const discountedPrice = hasDiscount ? currentPrice * (1 - product.discount_percentage / 100) : currentPrice;
+
                                                     return (
                                                         <Link
                                                             key={product.id}
@@ -237,7 +241,12 @@ export function Header() {
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">{product.brands?.name}</p>
                                                                 <p className="text-base font-serif text-white group-hover:text-gold transition-colors truncate">{product.name}</p>
-                                                                <p className="text-sm font-mono text-gold mt-1 font-bold">${product.price.toLocaleString()}</p>
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    <p className="text-sm font-mono text-gold font-bold">${Number(discountedPrice).toLocaleString('es-CO')}</p>
+                                                                    {hasDiscount && (
+                                                                        <p className="text-[10px] font-mono text-neutral-500 line-through">${Number(currentPrice).toLocaleString('es-CO')}</p>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </Link>
                                                     );
@@ -376,6 +385,10 @@ export function Header() {
                                                 console.error("Error parsing images for product", product.id, e);
                                             }
 
+                                            const hasDiscount = product.discount_percentage > 0;
+                                            const currentPrice = product.price || 0;
+                                            const discountedPrice = hasDiscount ? currentPrice * (1 - product.discount_percentage / 100) : currentPrice;
+
                                             return (
                                                 <Link
                                                     key={product.id}
@@ -393,7 +406,12 @@ export function Header() {
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-[10px] text-neutral-500 uppercase tracking-wider mb-0.5">{product.brands?.name}</p>
                                                         <p className="text-sm font-serif text-white group-hover:text-gold transition-colors truncate">{product.name}</p>
-                                                        <p className="text-xs font-mono text-gold mt-0.5 font-bold">${product.price.toLocaleString()}</p>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <p className="text-xs font-mono text-gold font-bold">${Number(discountedPrice).toLocaleString('es-CO')}</p>
+                                                            {hasDiscount && (
+                                                                <p className="text-[9px] font-mono text-neutral-500 line-through">${Number(currentPrice).toLocaleString('es-CO')}</p>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </Link>
                                             );
