@@ -57,6 +57,7 @@ export default function CheckoutPage() {
     const [isAuthSidebarOpen, setIsAuthSidebarOpen] = useState(false);
     const [isGuestContinuing, setIsGuestContinuing] = useState(false);
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const [welcomeCoupon, setWelcomeCoupon] = useState<{ code: string; discount_percentage: number } | null>(null);
 
     // Derived state for cities based on selected department in form
     const availableCities = formData.department ? (colombiaData as any)[formData.department] || [] : [];
@@ -112,7 +113,6 @@ export default function CheckoutPage() {
         };
         loadUserData();
 
-        // 3. Fetch Wompi Merchant Data (Acceptance Token)
         const fetchWompiMerchant = async () => {
             try {
                 const publicKey = (process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY || '').trim();
@@ -135,6 +135,21 @@ export default function CheckoutPage() {
             }
         };
         fetchWompiMerchant();
+
+        const fetchWelcomeCoupon = async () => {
+            try {
+                const { data, error } = await supabase.rpc('get_welcome_coupon');
+                if (data && data.length > 0) {
+                    setWelcomeCoupon(data[0]);
+                } else {
+                    console.log("No welcome coupon found or RLS blocked it (check RPC).");
+                }
+            } catch (err) {
+                console.error("Error fetching welcome coupon:", err);
+            }
+        };
+        fetchWelcomeCoupon();
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (session?.user) {
                 setCurrentUser(session.user);
@@ -230,6 +245,26 @@ export default function CheckoutPage() {
             if (error) throw error;
 
             if (data) {
+                // Check max uses
+                if (data.max_uses !== null && data.current_uses >= data.max_uses) {
+                    sileo.error({
+                        title: "Cupón agotado",
+                        description: "Este cupón ha alcanzado su límite de usos."
+                    });
+                    setIsValidatingCoupon(false);
+                    return;
+                }
+
+                // Check expiration
+                if (data.expires_at && new Date(data.expires_at) < new Date()) {
+                    sileo.error({
+                        title: "Cupón expirado",
+                        description: "El tiempo de validez de este cupón ha terminado."
+                    });
+                    setIsValidatingCoupon(false);
+                    return;
+                }
+
                 // Check if user has already used this coupon
                 const { data: alreadyUsed, error: usageError } = await supabase.rpc('check_coupon_usage', {
                     p_coupon_id: data.id,
@@ -369,9 +404,21 @@ export default function CheckoutPage() {
             return;
         }
 
+        // Increment current_uses when order is created
+        if (appliedCoupon) {
+            await supabase.from('coupons').update({ current_uses: (appliedCoupon.current_uses || 0) + 1 }).eq('id', appliedCoupon.id);
+        }
+
         const deleteOrder = async () => {
             console.log("[Checkout] Eliminando pedido fallido:", order.id);
             await supabase.from('orders').delete().eq('id', order.id);
+            // Revert the coupon usage
+            if (appliedCoupon) {
+                const { data: c } = await supabase.from('coupons').select('current_uses').eq('id', appliedCoupon.id).single();
+                if (c) {
+                    await supabase.from('coupons').update({ current_uses: Math.max(0, (c.current_uses || 1) - 1) }).eq('id', appliedCoupon.id);
+                }
+            }
         };
 
         // 3. Prepare Wompi Data (EXACT INTEGERS ONLY)
@@ -978,13 +1025,16 @@ export default function CheckoutPage() {
                                 <div className="pt-2">
                                     {!appliedCoupon ? (
                                         <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                placeholder="CÓDIGO DE DESCUENTO"
-                                                value={couponInput}
-                                                onChange={e => setCouponInput(e.target.value)}
-                                                className="flex-1 bg-black border border-white/10 p-2 text-[10px] focus:border-gold outline-none uppercase"
-                                            />
+                                            <div className="flex flex-col flex-1">
+                                                <input
+                                                    type="text"
+                                                    placeholder="CÓDIGO DE DESCUENTO"
+                                                    value={couponInput}
+                                                    onChange={e => setCouponInput(e.target.value)}
+                                                    className="w-full bg-black border border-white/10 p-2 text-[10px] focus:border-gold outline-none uppercase"
+                                                />
+                                                {!currentUser && <span className="text-[10px] text-neutral-500 mt-1">💡 Regístrate para usar cupones</span>}
+                                            </div>
                                             <button
                                                 type="button"
                                                 onClick={handleApplyCoupon}
@@ -1048,9 +1098,8 @@ export default function CheckoutPage() {
                 onContinueAsGuest={() => {
                     setShowGuestInvite(false);
                     setIsGuestContinuing(true);
-                    // Trigger payment again smoothly but wait for re-render if needed
-                    // Actually, the user can just click "Proceder al Pago" again
                 }}
+                welcomeCoupon={welcomeCoupon}
             />
 
             <AuthSidebar

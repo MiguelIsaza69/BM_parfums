@@ -8,9 +8,10 @@ interface GuestInviteModalProps {
     onClose: () => void;
     onRegister: () => void;
     onContinueAsGuest: () => void;
+    welcomeCoupon: { code: string; discount_percentage: number } | null;
 }
 
-export function GuestInviteModal({ isOpen, onClose, onRegister, onContinueAsGuest }: GuestInviteModalProps) {
+export function GuestInviteModal({ isOpen, onClose, onRegister, onContinueAsGuest, welcomeCoupon }: GuestInviteModalProps) {
     const [isAnimating, setIsAnimating] = useState(false);
 
     useEffect(() => {
@@ -24,7 +25,7 @@ export function GuestInviteModal({ isOpen, onClose, onRegister, onContinueAsGues
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-1000 flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
             {/* Backdrop */}
             <div
                 className={`absolute inset-0 bg-black/90 backdrop-blur-md transition-opacity duration-300 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}
@@ -45,10 +46,21 @@ export function GuestInviteModal({ isOpen, onClose, onRegister, onContinueAsGues
                         <UserPlus size={40} />
                     </div>
 
-                    <h3 className="text-2xl md:text-3xl font-serif text-white mb-4 tracking-tight uppercase italic">¡ESPERA! OBTÉN 10% OFF</h3>
-                    <p className="text-neutral-400 font-mono text-sm mb-10 leading-relaxed md:px-4">
-                        Regístrate ahora y obtén un <span className="text-gold font-bold">10% de descuento</span> en tu pedido usando el código <span className="text-white font-bold bg-white/5 px-2 py-0.5 rounded border border-white/10">BIENVENIDO</span>. Además, podrás rastrear tu envío y guardar tus datos para futuras compras.
-                    </p>
+                    {welcomeCoupon ? (
+                        <>
+                            <h3 className="text-2xl md:text-3xl font-serif text-white mb-4 tracking-tight uppercase italic">¡ESPERA! OBTÉN {welcomeCoupon.discount_percentage}% OFF</h3>
+                            <p className="text-neutral-400 font-mono text-sm mb-10 leading-relaxed md:px-4">
+                                Regístrate ahora y obtén un <span className="text-gold font-bold">{welcomeCoupon.discount_percentage}% de descuento</span> en tu pedido usando el código <span className="text-white font-bold bg-white/5 px-2 py-0.5 rounded border border-white/10">{welcomeCoupon.code}</span>. Además, podrás rastrear tu envío y guardar tus datos para futuras compras.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <h3 className="text-2xl md:text-3xl font-serif text-white mb-4 tracking-tight uppercase italic">¡ESPERA! REGÍSTRATE</h3>
+                            <p className="text-neutral-400 font-mono text-sm mb-10 leading-relaxed md:px-4">
+                                Regístrate ahora para guardar tus datos, rastrear tus envíos y acceder a promociones exclusivas en el futuro.
+                            </p>
+                        </>
+                    )}
 
                     <div className="flex flex-col w-full gap-4">
                         <button
@@ -56,7 +68,7 @@ export function GuestInviteModal({ isOpen, onClose, onRegister, onContinueAsGues
                             className="bg-gold text-black w-full py-5 px-10 uppercase font-black text-xs tracking-[4px] shadow-2xl transition-all hover:bg-white active:scale-95 flex items-center justify-center gap-3"
                         >
                             <UserPlus size={18} />
-                            Registrarme y obtener descuento
+                            Registrarme
                         </button>
 
                         <button
