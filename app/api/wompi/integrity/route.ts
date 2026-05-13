@@ -17,33 +17,14 @@ export async function POST(request: Request) {
         const integritySecret = (process.env.WOMPI_INTEGRITY_SECRET || '').trim();
 
         if (!integritySecret) {
-            console.error("[Wompi] ERROR: WOMPI_INTEGRITY_SECRET no definida");
             return NextResponse.json({ error: 'Configuración incompleta' }, { status: 500 });
         }
 
-        // Formula: SHA256(reference + amountInCents + currency + secret)
         const chain = `${cleanReference}${cleanAmount}${cleanCurrency}${integritySecret}`;
         const signature = crypto.createHash('sha256').update(chain).digest('hex').trim();
 
-        console.log(`[Wompi Integrity]
-        - Reference: "${cleanReference}"
-        - Amount: "${cleanAmount}"
-        - Currency: "${cleanCurrency}"
-        - Chain Masked: ${cleanReference}${cleanAmount}${cleanCurrency}***${integritySecret.substring(integritySecret.length - 4)}
-        - Secret Preview: ${integritySecret.substring(0, 8)}... (Length: ${integritySecret.length})
-        - Signature: ${signature}`);
-
-        return NextResponse.json({
-            signature,
-            debug: {
-                reference: cleanReference,
-                amount: cleanAmount,
-                currency: cleanCurrency,
-                chain_prefix: `${cleanReference}${cleanAmount}${cleanCurrency}`
-            }
-        });
-    } catch (error) {
-        console.error('Error in /api/wompi/integrity:', error);
+        return NextResponse.json({ signature });
+    } catch {
         return NextResponse.json({ error: 'Error interno' }, { status: 500 });
     }
 }

@@ -147,18 +147,20 @@ export default function AdminDashboard() {
     const handleSendPromotion = async () => {
         setIsSendingPromo(true);
         try {
-            const recipients = usersList.map(u => u.email).filter(Boolean);
             const imageArray = promoImages.split(/\n/).map(img => img.trim()).filter(img => img.length > 0);
+            const { data: { session } } = await supabase.auth.getSession();
 
             const response = await fetch('/api/promotions/send', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+                },
                 body: JSON.stringify({
                     subject: promoSubject,
                     title: promoTitle,
                     htmlBody: promoMessage.replace(/\n/g, '<br/>'),
-                    images: imageArray,
-                    recipients
+                    images: imageArray
                 })
             });
 
@@ -202,17 +204,14 @@ export default function AdminDashboard() {
     const handleSendInvoice = async (order: any) => {
         setIsSendingEmail(order.id);
         try {
+            const { data: { session } } = await supabase.auth.getSession();
             const response = await fetch('/api/send-invoice', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    orderId: order.id,
-                    email: order.shipping_info?.email || order.profiles?.email,
-                    name: order.shipping_info?.name || order.profiles?.full_name || "Cliente",
-                    items: order.items,
-                    total: order.total,
-                    shipping_info: order.shipping_info
-                })
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+                },
+                body: JSON.stringify({ orderId: order.id })
             });
 
             const result = await response.json();
@@ -353,7 +352,14 @@ export default function AdminDashboard() {
     const [coupons, setCoupons] = useState<any[]>([]);
     const [newCouponCode, setNewCouponCode] = useState("");
     const [newCouponDiscount, setNewCouponDiscount] = useState("");
+    const [newCouponMaxUses, setNewCouponMaxUses] = useState("");
+    const [newCouponExpiresAt, setNewCouponExpiresAt] = useState("");
+    const [newCouponIsWelcome, setNewCouponIsWelcome] = useState(false);
     const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
+
+    // --- WELCOME COUPON STATE ---
+    const [welcomeCouponConfig, setWelcomeCouponConfig] = useState({ id: null as string | null, code: "BIENVENIDO", discount_percentage: 10, is_active: true });
+    const [isSubmittingWelcome, setIsSubmittingWelcome] = useState(false);
 
     // --- CATEGORY CONFIG STATE ---
     const [newCategoryName, setNewCategoryName] = useState("");
@@ -397,9 +403,24 @@ export default function AdminDashboard() {
             }
 
             if (activeSection === 'coupons') {
-                const { data, error } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
+                // Fetch ALL active coupons
+                const { data: allCoupons, error } = await supabase.from('coupons').select('*').eq('is_active', true).order('created_at', { ascending: false });
                 if (error) console.error("Error loading coupons:", error);
-                if (mounted && data) setCoupons(data);
+                
+                // Fetch welcome coupon
+                const { data: welcomeData } = await supabase.from('coupons').select('*').eq('is_welcome', true).limit(1).maybeSingle();
+
+                if (mounted) {
+                    if (allCoupons) {
+                        const sorted = [...allCoupons].sort((a, b) => (a.is_welcome === b.is_welcome ? 0 : a.is_welcome ? -1 : 1));
+                        setCoupons(sorted);
+                    }
+                    if (welcomeData) {
+                        setWelcomeCouponConfig({ id: welcomeData.id, code: welcomeData.code, discount_percentage: welcomeData.discount_percentage, is_active: welcomeData.is_active });
+                    } else {
+                        setWelcomeCouponConfig({ id: null, code: "BIENVENIDO", discount_percentage: 10, is_active: false });
+                    }
+                }
             }
         };
 
@@ -548,15 +569,24 @@ export default function AdminDashboard() {
         setIsSubmittingCoupon(true);
         const { error } = await supabase.from('coupons').insert([{
             code: newCouponCode.toUpperCase().trim(),
-            discount_percentage: parseFloat(newCouponDiscount)
+            discount_percentage: parseFloat(newCouponDiscount),
+            max_uses: newCouponMaxUses ? parseInt(newCouponMaxUses) : null,
+            expires_at: newCouponExpiresAt ? new Date(newCouponExpiresAt).toISOString() : null,
+            is_welcome: newCouponIsWelcome
         }]);
         if (!error) {
             addToast("Cupón creado", "success");
             setNewCouponCode("");
             setNewCouponDiscount("");
+            setNewCouponMaxUses("");
+            setNewCouponExpiresAt("");
+            setNewCouponIsWelcome(false);
             // Refresh
-            const { data } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
-            if (data) setCoupons(data);
+            const { data } = await supabase.from('coupons').select('*').eq('is_active', true).order('created_at', { ascending: false });
+            if (data) {
+                const sorted = [...data].sort((a, b) => (a.is_welcome === b.is_welcome ? 0 : a.is_welcome ? -1 : 1));
+                setCoupons(sorted);
+            }
         } else {
             addToast("Error al crear cupón", "error");
         }
@@ -570,13 +600,64 @@ export default function AdminDashboard() {
             confirmText: "Eliminar",
             isDanger: true,
             onConfirm: async () => {
-                const { error } = await supabase.from('coupons').delete().eq('id', id);
+                const { error } = await supabase.from('coupons').update({ is_active: false }).eq('id', id);
                 if (!error) {
                     addToast("Cupón eliminado", "success");
-                    setCoupons(prev => prev.filter(c => c.id !== id));
+                    const { data } = await supabase.from('coupons').select('*').eq('is_active', true).order('created_at', { ascending: false });
+                    if (data) {
+                        const sorted = [...data].sort((a, b) => (a.is_welcome === b.is_welcome ? 0 : a.is_welcome ? -1 : 1));
+                        setCoupons(sorted);
+                    }
+                } else {
+                    addToast("Error al eliminar", "error");
                 }
             }
         });
+    };
+
+    const handleSaveWelcomeCoupon = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmittingWelcome(true);
+
+        try {
+            const upperCode = welcomeCouponConfig.code.toUpperCase().trim();
+
+            if (welcomeCouponConfig.id) {
+                // Modificar estrictamente el ÚNICO cupón de bienvenida existente
+                const { error } = await supabase.from('coupons').update({
+                    code: upperCode,
+                    discount_percentage: welcomeCouponConfig.discount_percentage,
+                    is_active: welcomeCouponConfig.is_active
+                }).eq('id', welcomeCouponConfig.id);
+                
+                if (error) throw error;
+            } else {
+                // Solo inserta si no existía ninguno (ej. si fue borrado manualmente de la BD)
+                const { data, error } = await supabase.from('coupons').insert([{
+                    code: upperCode,
+                    discount_percentage: welcomeCouponConfig.discount_percentage,
+                    is_welcome: true,
+                    is_active: welcomeCouponConfig.is_active
+                }]).select().single();
+                
+                if (error) throw error;
+                if (data) setWelcomeCouponConfig(prev => ({ ...prev, id: data.id }));
+            }
+
+            addToast("Cupón de Bienvenida actualizado", "success");
+            
+            // Refresh
+            const { data: allCoupons } = await supabase.from('coupons').select('*').eq('is_active', true).order('created_at', { ascending: false });
+            if (allCoupons) {
+                const sorted = [...allCoupons].sort((a, b) => (a.is_welcome === b.is_welcome ? 0 : a.is_welcome ? -1 : 1));
+                setCoupons(sorted);
+            }
+
+        } catch (error: any) {
+            addToast("Error: " + error.message, "error");
+        } finally {
+            setIsSubmittingWelcome(false);
+        }
     };
 
     // --- PRODUCTS STATE ---
@@ -715,12 +796,14 @@ export default function AdminDashboard() {
                 decants: productForm.has_original ? productForm.decants : []
             };
 
-            console.log("Saving payload via API:", payload);
+            const { data: { session } } = await supabase.auth.getSession();
 
-            // USE SERVER-SIDE API TO BYPASS RLS/NETWORK ISSUES
             const response = await fetch('/api/products/create', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+                },
                 body: JSON.stringify(payload)
             });
 
@@ -1769,7 +1852,53 @@ export default function AdminDashboard() {
                     <div className="space-y-8">
                         <div>
                             <h2 className="text-3xl font-serif text-white mb-6 border-b border-white/10 pb-4">Gestión de Cupones</h2>
-                            <form onSubmit={handleAddCoupon} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-neutral-900 p-6 rounded-lg border border-white/20">
+
+                            <div className="mb-8 bg-gold/5 border border-gold/20 p-6 rounded-lg">
+                                <h3 className="text-xl font-serif text-gold mb-4">Cupón de Bienvenida (Popup de Invitados)</h3>
+                                <p className="text-neutral-400 text-xs font-mono mb-4">Este cupón aparece automáticamente a los invitados. Al cambiar el código o descuento, los usuarios registrados podrán volver a usar este nuevo beneficio.</p>
+                                <form onSubmit={handleSaveWelcomeCoupon} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Código</label>
+                                        <input
+                                            value={welcomeCouponConfig.code}
+                                            onChange={e => setWelcomeCouponConfig(p => ({ ...p, code: e.target.value.toUpperCase() }))}
+                                            className="w-full bg-black border border-white/20 p-3 text-white text-sm font-mono focus:border-gold outline-none rounded"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Descuento (%)</label>
+                                        <input
+                                            type="number"
+                                            value={welcomeCouponConfig.discount_percentage}
+                                            onChange={e => setWelcomeCouponConfig(p => ({ ...p, discount_percentage: Number(e.target.value) }))}
+                                            className="w-full bg-black border border-white/20 p-3 text-white text-sm font-mono focus:border-gold outline-none rounded"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="flex flex-col justify-end pb-3">
+                                        <label className="flex items-center gap-2 cursor-pointer group">
+                                            <input
+                                                type="checkbox"
+                                                checked={welcomeCouponConfig.is_active}
+                                                onChange={e => setWelcomeCouponConfig(p => ({ ...p, is_active: e.target.checked }))}
+                                                className="w-4 h-4 accent-gold bg-black border-white/20"
+                                            />
+                                            <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest group-hover:text-gold transition-colors">Mostrar Descuento</span>
+                                        </label>
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmittingWelcome}
+                                        className="w-full bg-white py-3 text-black font-bold uppercase text-xs hover:bg-gold transition-all active:scale-95 disabled:opacity-50 rounded"
+                                    >
+                                        {isSubmittingWelcome ? "Guardando..." : "Guardar Cambios"}
+                                    </button>
+                                </form>
+                            </div>
+
+                            <h3 className="text-xl font-serif text-white mb-4">Crear Cupón Regular</h3>
+                            <form onSubmit={handleAddCoupon} className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-neutral-900 p-6 rounded-lg border border-white/20 items-end">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Código del Cupón</label>
                                     <input
@@ -1789,11 +1918,30 @@ export default function AdminDashboard() {
                                         className="w-full bg-black border border-white/20 p-3 text-white text-sm font-mono focus:border-gold outline-none rounded"
                                     />
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Límite de usos</label>
+                                    <input
+                                        type="number"
+                                        value={newCouponMaxUses}
+                                        onChange={e => setNewCouponMaxUses(e.target.value)}
+                                        placeholder="Ilimitado si vacío"
+                                        className="w-full bg-black border border-white/20 p-3 text-white text-sm font-mono focus:border-gold outline-none rounded"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Válido hasta</label>
+                                    <input
+                                        type="date"
+                                        value={newCouponExpiresAt}
+                                        onChange={e => setNewCouponExpiresAt(e.target.value)}
+                                        className="w-full bg-black border border-white/20 p-3 text-white text-sm font-mono focus:border-gold outline-none rounded [color-scheme:dark]"
+                                    />
+                                </div>
                                 <div className="flex items-end">
                                     <button
                                         type="submit"
                                         disabled={isSubmittingCoupon}
-                                        className="w-full bg-gold py-3 text-black font-bold uppercase text-xs hover:bg-white transition-all active:scale-95 disabled:opacity-50"
+                                        className="w-full bg-gold py-3 text-black font-bold uppercase text-xs hover:bg-white transition-all active:scale-95 disabled:opacity-50 rounded"
                                     >
                                         {isSubmittingCoupon ? "Creando..." : "Crear Cupón"}
                                     </button>
@@ -1807,35 +1955,45 @@ export default function AdminDashboard() {
                                     <tr>
                                         <th className="p-4 text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Código</th>
                                         <th className="p-4 text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Descuento</th>
+                                        <th className="p-4 text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Usos</th>
+                                        <th className="p-4 text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Expira</th>
                                         <th className="p-4 text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Fecha Creación</th>
                                         <th className="p-4 text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {coupons.map(coupon => (
+                                    {[...coupons].sort((a, b) => b.is_welcome - a.is_welcome).map(coupon => (
                                         <tr key={coupon.id} className="hover:bg-white/5 transition-colors group">
-                                            <td className="p-4">
-                                                <span className="bg-gold/10 text-gold px-3 py-1 rounded font-mono text-sm border border-gold/20 tracking-wider">
-                                                    {coupon.code}
-                                                </span>
+                                            <td className="p-4 font-mono font-bold text-gold flex items-center gap-2">
+                                                {coupon.code}
+                                                {coupon.is_welcome && (
+                                                    <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded text-[9px] font-sans uppercase tracking-wider">
+                                                        Cupón de Bienvenida
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="p-4 text-white font-mono">{coupon.discount_percentage}%</td>
+                                            <td className="p-4 text-neutral-400 font-mono text-xs">
+                                                {coupon.current_uses || 0} / {coupon.max_uses ? coupon.max_uses : '∞'}
+                                            </td>
+                                            <td className="p-4 text-neutral-400 font-mono text-xs">
+                                                {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString() : 'Nunca'}
+                                            </td>
                                             <td className="p-4 text-neutral-500 text-xs font-mono">
                                                 {new Date(coupon.created_at).toLocaleDateString()}
                                             </td>
-                                            <td className="p-4">
-                                                <button
-                                                    onClick={() => handleDeleteCoupon(coupon.id)}
-                                                    className="text-neutral-600 hover:text-red-500 transition-colors p-2"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
+                                            <td className="p-4 text-center">
+                                                {!coupon.is_welcome && (
+                                                    <button onClick={() => handleDeleteCoupon(coupon.id)} className="text-neutral-500 hover:text-red-500 transition-colors">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
                                     {coupons.length === 0 && (
                                         <tr>
-                                            <td colSpan={4} className="p-12 text-center text-neutral-500 italic font-serif">
+                                            <td colSpan={6} className="p-12 text-center text-neutral-500 italic font-serif">
                                                 No hay cupones activos.
                                             </td>
                                         </tr>

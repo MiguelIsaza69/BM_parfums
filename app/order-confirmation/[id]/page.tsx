@@ -98,18 +98,14 @@ export default function OrderConfirmationPage() {
                 return;
             }
 
+            const { data: { session } } = await supabase.auth.getSession();
             const response = await fetch('/api/send-invoice', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    orderId: order.id,
-                    email: order.shipping_info.email,
-                    name: order.shipping_info.name || "Cliente",
-                    items: order.items || [],
-                    total: order.total || 0,
-                    shipping_info: order.shipping_info,
-                    payment_method: order.payment_method
-                }),
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+                },
+                body: JSON.stringify({ orderId: order.id }),
                 signal: AbortSignal.timeout(8000)
             });
 
