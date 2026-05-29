@@ -757,7 +757,13 @@ export default function AdminDashboard() {
                     if (trimmedImage.length > 5) cleanImages.push(trimmedImage);
                 }
             }
-            const cleanDesc = (productForm.description || "").normalize('NFC').replace(/\u0000/g, "").trim();
+            const cleanDesc = (productForm.description || "")
+                .normalize('NFC')
+                .replace(/\u0000/g, "")
+                .replace(/\r\n?/g, "\n")
+                .replace(/[\u2028\u2029\u0085]/g, "\n")
+                .replace(/\u00a0/g, " ")
+                .trim();
 
             // DUPLICATE CHECK: Prevent exact Name + Quality duplicates
             const normalizedName = productForm.name.trim().toLowerCase();

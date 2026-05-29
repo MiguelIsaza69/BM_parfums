@@ -37,7 +37,14 @@ export default function ProductDetailsPage() {
     const renderDescription = (text: string) => {
         if (!text) return "Sin descripción disponible para este producto exclusivo.";
 
-        const lines = text.split('\n');
+        // Normalize line breaks from any source (Windows \r\n, Unicode U+2028/U+2029/NEL
+        // that come from pasting from WhatsApp/Word/web) and non-breaking spaces, so the
+        // "Perfil olfativo" + key:value formatting renders correctly.
+        const normalized = text
+            .replace(/\r\n?/g, '\n')
+            .replace(/[\u2028\u2029\u0085]/g, '\n')
+            .replace(/\u00a0/g, ' ');
+        const lines = normalized.split('\n');
         return (
             <div className="space-y-2">
                 {lines.map((line, index) => {
