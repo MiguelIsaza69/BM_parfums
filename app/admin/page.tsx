@@ -804,26 +804,42 @@ export default function AdminDashboard() {
 
             const { data: { session } } = await supabase.auth.getSession();
 
-            const response = await fetch('/api/products/create', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
-                },
-                body: JSON.stringify(payload)
-            });
+            // Abort after 30s so the UI never hangs indefinitely on a stalled API.
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+            let response: Response;
+            try {
+                response = await fetch('/api/products/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+                    },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+            } catch (fetchErr: any) {
+                if (fetchErr?.name === 'AbortError') {
+                    throw new Error("El servidor no respondió en 30s. Revisa los logs de Vercel.");
+                }
+                throw new Error("Error de red: " + (fetchErr?.message || "no se pudo contactar al servidor"));
+            } finally {
+                clearTimeout(timeoutId);
+            }
 
             if (!response.ok) {
                 const text = await response.text();
                 console.error("API Error Text:", text);
-                throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
+                throw new Error(`Error del servidor: ${response.status} ${response.statusText} - ${text}`);
             }
 
             const result = await response.json();
 
             if (!result.success) {
-                console.error("API Error:", result.error);
-                throw new Error(result.error?.message || result.error || "Error al guardar en el servidor");
+                console.error("API Error:", result);
+                const detail = [result.error, result.details, result.hint].filter(Boolean).join(' | ');
+                throw new Error(detail || "Error al guardar en el servidor");
             }
 
             addToast("¡Guardado correctamente!", "success");

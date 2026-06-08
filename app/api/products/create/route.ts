@@ -22,47 +22,27 @@ export async function POST(request: Request) {
 
         const payload = await request.json();
         const isUpdate = !!payload.id;
+        const { id, ...data } = payload;
 
-        let query = supabaseAdmin.from('products');
-        let result;
+        const result = isUpdate
+            ? await supabaseAdmin.from('products').update(data).eq('id', id).select('*, brands(name), genders(name)')
+            : await supabaseAdmin.from('products').insert([data]).select('*, brands(name), genders(name)');
 
-        if (isUpdate) {
-            const { id, ...updateData } = payload;
-            result = await query.update(updateData).eq('id', id).select('*, brands(name), genders(name)');
-        } else {
-            const { id, ...insertData } = payload;
-            result = await query.insert([insertData]).select('*, brands(name), genders(name)');
+        if (result.error) {
+            console.error('[products/create] supabase error:', result.error);
+            return NextResponse.json({
+                success: false,
+                error: result.error.message,
+                details: result.error.details,
+                hint: result.error.hint,
+                code: result.error.code,
+            }, { status: 500 });
         }
 
-        const { data: dataArr, error: errorArr } = result;
-
-        if (!errorArr) {
-            return NextResponse.json({ success: true, data: dataArr });
-        }
-
-        if (Array.isArray(payload.images)) {
-            const payloadString = { ...payload, images: payload.images.join(',') };
-
-            let resultStr;
-            if (isUpdate) {
-                const { id, ...updateDataStr } = payloadString;
-                resultStr = await supabaseAdmin.from('products').update(updateDataStr).eq('id', id).select('*, brands(name), genders(name)');
-            } else {
-                const { id, ...insertDataStr } = payloadString;
-                resultStr = await supabaseAdmin.from('products').insert([insertDataStr]).select('*, brands(name), genders(name)');
-            }
-
-            const { data: dataStr, error: errorStr } = resultStr;
-
-            if (!errorStr) {
-                return NextResponse.json({ success: true, data: dataStr });
-            }
-            return NextResponse.json({ success: false, error: errorStr.message }, { status: 500 });
-        }
-
-        return NextResponse.json({ success: false, error: errorArr.message }, { status: 500 });
+        return NextResponse.json({ success: true, data: result.data });
 
     } catch (e: any) {
-        return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
+        console.error('[products/create] unhandled error:', e);
+        return NextResponse.json({ success: false, error: e?.message ?? 'Server error' }, { status: 500 });
     }
 }
